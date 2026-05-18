@@ -1,6 +1,6 @@
 {
-  "name": "Base44 App",
-  "description": "App to handle Base44 encoding/decoding, based on user file.",
+  "name": "EnjoyCar",
+  "description": "Vehicle maintenance tracker and management app.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

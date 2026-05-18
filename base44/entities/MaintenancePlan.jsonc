@@ -1,0 +1,112 @@
+{
+  "name": "MaintenancePlan",
+  "type": "object",
+  "properties": {
+    "vehicle_id": {
+      "type": "string",
+      "description": "ID do ve\u00edculo"
+    },
+    "maintenance_type": {
+      "type": "string",
+      "description": "Tipo de manuten\u00e7\u00e3o (ex: Troca de \u00f3leo, Revis\u00e3o, etc)"
+    },
+    "description": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o da manuten\u00e7\u00e3o recomendada"
+    },
+    "recommended_mileage": {
+      "type": "number",
+      "description": "Quilometragem recomendada para esta manuten\u00e7\u00e3o"
+    },
+    "recommended_interval_km": {
+      "type": "number",
+      "description": "Intervalo em km para repetir esta manuten\u00e7\u00e3o"
+    },
+    "recommended_interval_months": {
+      "type": "number",
+      "description": "Intervalo em meses para repetir esta manuten\u00e7\u00e3o"
+    },
+    "is_completed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se a manuten\u00e7\u00e3o j\u00e1 foi realizada"
+    },
+    "completed_maintenance_id": {
+      "type": "string",
+      "description": "ID da manuten\u00e7\u00e3o realizada (se completada)"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "default": "medium",
+      "description": "Prioridade da manuten\u00e7\u00e3o"
+    },
+    "manual_images": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Imagens do manual onde consta esta recomenda\u00e7\u00e3o"
+    },
+    "technical_specs": {
+      "type": "object",
+      "description": "Especifica\u00e7\u00f5es t\u00e9cnicas extra\u00eddas do manual",
+      "properties": {
+        "parts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Pe\u00e7as recomendadas ou especifica\u00e7\u00f5es"
+        },
+        "fluids": {
+          "type": "object",
+          "description": "Especifica\u00e7\u00f5es de fluidos (\u00f3leo, l\u00edquidos, etc)"
+        },
+        "torque_specs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Especifica\u00e7\u00f5es de torque"
+        }
+      }
+    },
+    "safety_procedures": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Procedimentos de seguran\u00e7a importantes"
+    },
+    "manual_page_reference": {
+      "type": "string",
+      "description": "Refer\u00eancia da p\u00e1gina do manual"
+    },
+    "extracted_from_pdf": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se foi extra\u00eddo de PDF"
+    }
+  },
+  "required": [
+    "vehicle_id",
+    "maintenance_type"
+  ],
+  "rls": {
+    "create": {},
+    "read": {
+      "created_by": "{{user.email}}"
+    },
+    "update": {
+      "created_by": "{{user.email}}"
+    },
+    "delete": {
+      "created_by": "{{user.email}}"
+    }
+  }
+}
