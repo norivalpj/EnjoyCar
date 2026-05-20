@@ -1,0 +1,126 @@
+{
+  "entities": {
+    "Vehicle": {
+      "title": "Vehicle",
+      "description": "User's vehicle entry",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "brand": { "type": "string" },
+        "model": { "type": "string" },
+        "year": { "type": "number" },
+        "license_plate": { "type": "string" },
+        "color": { "type": "string" },
+        "current_mileage": { "type": "number" },
+        "photo_url": { "type": "string" },
+        "photo_urls": { "type": "array", "items": { "type": "string" } },
+        "purchase_date": { "type": "string" },
+        "purchase_store": { "type": "string" },
+        "purchase_cnpj": { "type": "string" },
+        "purchase_price": { "type": "number" },
+        "purchase_mileage": { "type": "number" },
+        "purchase_invoice_url": { "type": "string" },
+        "purchase_notes": { "type": "string" }
+      },
+      "required": ["userId", "brand", "model", "license_plate"]
+    },
+    "Maintenance": {
+      "title": "Maintenance",
+      "description": "Maintenance history for a vehicle",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "vehicle_id": { "type": "string" },
+        "date": { "type": "string" },
+        "type": { "type": "string" },
+        "description": { "type": "string" },
+        "mileage": { "type": "number" },
+        "cost": { "type": "number" },
+        "workshop_name": { "type": "string" },
+        "invoice_number": { "type": "string" },
+        "invoice_url": { "type": "string" },
+        "photo_urls": { "type": "array", "items": { "type": "string" } },
+        "parts_replaced": { "type": "array", "items": { "type": "object" } },
+        "next_maintenance_date": { "type": "string" },
+        "next_maintenance_mileage": { "type": "number" }
+      },
+      "required": ["userId", "vehicle_id", "date", "type"]
+    },
+    "MaintenancePlan": {
+      "title": "Maintenance Plan",
+      "description": "Recommended maintenance plan",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "vehicle_id": { "type": "string" },
+        "maintenance_type": { "type": "string" },
+        "description": { "type": "string" },
+        "recommended_mileage": { "type": "number" },
+        "recommended_interval_km": { "type": "number" },
+        "recommended_interval_months": { "type": "number" },
+        "is_completed": { "type": "boolean" },
+        "completed_maintenance_id": { "type": "string" },
+        "priority": { "type": "string" },
+        "manual_images": { "type": "array", "items": { "type": "string" } },
+        "technical_specs": { "type": "object" },
+        "safety_procedures": { "type": "array", "items": { "type": "string" } },
+        "manual_page_reference": { "type": "string" },
+        "extracted_from_pdf": { "type": "boolean" }
+      },
+      "required": ["userId", "vehicle_id", "maintenance_type"]
+    },
+    "Workshop": {
+      "title": "Workshop",
+      "description": "Saved workshop",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "specialties": { "type": "array", "items": { "type": "string" } },
+        "notes": { "type": "string" },
+        "rating": { "type": "number" },
+        "is_favorite": { "type": "boolean" }
+      },
+      "required": ["userId", "name"]
+    },
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "User preferences",
+      "type": "object",
+      "properties": {
+        "tour_completed": { "type": "boolean" },
+        "notifications_enabled": { "type": "boolean" },
+        "notify_days_before": { "type": "number" },
+        "notify_km_before": { "type": "number" },
+        "last_maintenance_alert_sent": { "type": "string" },
+        "last_mileage_reminder_sent": { "type": "string" }
+      },
+      "required": []
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User preferences and settings"
+    },
+    "/vehicles/{vehicleId}": {
+      "schema": { "$ref": "#/entities/Vehicle" },
+      "description": "User vehicles. Subcollections not strictly required since vehicle_id is stored."
+    },
+    "/maintenances/{maintenanceId}": {
+      "schema": { "$ref": "#/entities/Maintenance" },
+      "description": "Maintenance records."
+    },
+    "/maintenancePlans/{planId}": {
+      "schema": { "$ref": "#/entities/MaintenancePlan" },
+      "description": "Maintenance plans for vehicles."
+    },
+    "/workshops/{workshopId}": {
+      "schema": { "$ref": "#/entities/Workshop" },
+      "description": "Saved workshops."
+    }
+  }
+}

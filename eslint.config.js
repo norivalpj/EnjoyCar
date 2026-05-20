@@ -3,8 +3,12 @@ import pluginJs from "@eslint/js";
 import pluginReact from "eslint-plugin-react";
 import pluginReactHooks from "eslint-plugin-react-hooks";
 import pluginUnusedImports from "eslint-plugin-unused-imports";
+import firebaseRulesPlugin from '@firebase/eslint-plugin-security-rules';
 
 export default [
+  {
+    ignores: ['dist/**/*']
+  },
   {
     files: [
       "src/components/**/*.{js,mjs,cjs,jsx}",
@@ -57,4 +61,5 @@ export default [
       "react-hooks/rules-of-hooks": "error",
     },
   },
+  firebaseRulesPlugin.configs['flat/recommended']
 ];

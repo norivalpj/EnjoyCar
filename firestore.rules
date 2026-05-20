@@ -1,0 +1,136 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global helpers
+    function error(msg) { return false; }
+    function isSignedIn() { return request.auth != null && request.auth.token.email_verified == true; }
+    function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+
+    // User schemas
+    function isValidUser(data) {
+      return data.keys().hasAll(['tour_completed', 'notifications_enabled']) &&
+             data.keys().size() <= 6 &&
+             data.tour_completed is bool &&
+             data.notifications_enabled is bool;
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow create: if isOwner(userId) && isValidId(userId) &&
+        isValidUser(incoming());
+      allow update: if isOwner(userId) && isValidId(userId) &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'tour_completed', 'notifications_enabled', 'notify_days_before', 
+          'notify_km_before', 'last_maintenance_alert_sent', 'last_mileage_reminder_sent'
+        ]);
+    }
+
+    function isValidVehicle(data) {
+      return data.keys().hasAll(['userId', 'brand', 'model', 'license_plate']) &&
+             data.userId == request.auth.uid &&
+             data.brand is string && data.brand.size() > 0 && data.brand.size() <= 100 &&
+             data.model is string && data.model.size() > 0 && data.model.size() <= 100 &&
+             data.license_plate is string && data.license_plate.size() > 0 && data.license_plate.size() <= 20;
+    }
+
+    match /vehicles/{vehicleId} {
+      allow get: if isOwner(existing().userId) && isValidId(vehicleId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isOwner(incoming().userId) && isValidId(vehicleId) &&
+        isValidVehicle(incoming()) && incoming().createdAt == request.time;
+      allow update: if isOwner(existing().userId) && isValidId(vehicleId) &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'brand', 'model', 'year', 'license_plate', 'color', 'current_mileage',
+          'photo_url', 'photo_urls', 'purchase_date', 'purchase_store',
+          'purchase_cnpj', 'purchase_price', 'purchase_mileage',
+          'purchase_invoice_url', 'purchase_notes', 'updatedAt'
+        ]);
+      allow delete: if isOwner(existing().userId) && isValidId(vehicleId);
+    }
+
+    function isValidMaintenance(data) {
+      return data.keys().hasAll(['userId', 'vehicle_id', 'date', 'type']) &&
+             data.userId == request.auth.uid && 
+             data.vehicle_id is string && data.vehicle_id.size() <= 128 &&
+             data.date is string && data.date.size() <= 30 &&
+             data.type is string && data.type.size() <= 50;
+    }
+
+    match /maintenances/{maintenanceId} {
+      allow get: if isOwner(existing().userId) && isValidId(maintenanceId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isOwner(incoming().userId) && isValidId(maintenanceId) &&
+        isValidMaintenance(incoming()) && incoming().createdAt == request.time &&
+        exists(/databases/$(database)/documents/vehicles/$(incoming().vehicle_id)) &&
+        get(/databases/$(database)/documents/vehicles/$(incoming().vehicle_id)).data.userId == request.auth.uid;
+      allow update: if isOwner(existing().userId) && isValidId(maintenanceId) &&
+        incoming().userId == existing().userId &&
+        incoming().vehicle_id == existing().vehicle_id &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'date', 'type', 'description', 'mileage', 'cost', 'workshop_name', 
+          'invoice_number', 'invoice_url', 'photo_urls', 'parts_replaced', 
+          'next_maintenance_date', 'next_maintenance_mileage', 'updatedAt'
+        ]);
+      allow delete: if isOwner(existing().userId) && isValidId(maintenanceId);
+    }
+
+    function isValidMaintenancePlan(data) {
+      return data.keys().hasAll(['userId', 'vehicle_id', 'maintenance_type']) &&
+             data.userId == request.auth.uid && 
+             data.vehicle_id is string && data.vehicle_id.size() <= 128 &&
+             data.maintenance_type is string && data.maintenance_type.size() <= 100;
+    }
+
+    match /maintenancePlans/{planId} {
+      allow get: if isOwner(existing().userId) && isValidId(planId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isOwner(incoming().userId) && isValidId(planId) &&
+        isValidMaintenancePlan(incoming()) && incoming().createdAt == request.time &&
+        exists(/databases/$(database)/documents/vehicles/$(incoming().vehicle_id)) &&
+        get(/databases/$(database)/documents/vehicles/$(incoming().vehicle_id)).data.userId == request.auth.uid;
+      allow update: if isOwner(existing().userId) && isValidId(planId) &&
+        incoming().userId == existing().userId &&
+        incoming().vehicle_id == existing().vehicle_id &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'maintenance_type', 'description', 'recommended_mileage', 
+          'recommended_interval_km', 'recommended_interval_months', 
+          'is_completed', 'completed_maintenance_id', 'priority', 
+          'manual_images', 'technical_specs', 'safety_procedures', 
+          'manual_page_reference', 'extracted_from_pdf', 'updatedAt'
+        ]);
+      allow delete: if isOwner(existing().userId) && isValidId(planId);
+    }
+
+    function isValidWorkshop(data) {
+      return data.keys().hasAll(['userId', 'name']) &&
+             data.userId == request.auth.uid && 
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100;
+    }
+
+    match /workshops/{workshopId} {
+      allow get: if isOwner(existing().userId) && isValidId(workshopId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isOwner(incoming().userId) && isValidId(workshopId) &&
+        isValidWorkshop(incoming()) && incoming().createdAt == request.time;
+      allow update: if isOwner(existing().userId) && isValidId(workshopId) &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'name', 'address', 'phone', 'email', 'specialties', 
+          'notes', 'rating', 'is_favorite', 'updatedAt'
+        ]);
+      allow delete: if isOwner(existing().userId) && isValidId(workshopId);
+    }
+  }
+}

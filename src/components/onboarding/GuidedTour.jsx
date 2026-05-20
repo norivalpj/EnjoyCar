@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { X, ChevronRight, ChevronLeft } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 
 const GuidedTour = ({ steps, onComplete, onSkip }) => {
   const [currentStep, setCurrentStep] = useState(0);

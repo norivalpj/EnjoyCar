@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Car, Calendar, Gauge, ShoppingCart } from "lucide-react";
+import { Car, Gauge } from "lucide-react";
 
 const VehicleCard = ({ vehicle, onClick, isSelected }) => {
   return (

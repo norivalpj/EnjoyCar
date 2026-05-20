@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
-  ArrowLeft, Pencil, Trash2, Calendar, Gauge, Car as CarIcon, 
+  ArrowLeft, Pencil, Trash2, Calendar, Gauge, 
   Palette, FileText, ShoppingCart, Building2, CreditCard, 
   ExternalLink, ChevronRight, BookOpen
 } from "lucide-react";

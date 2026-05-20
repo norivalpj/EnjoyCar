@@ -4,12 +4,11 @@ import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Plus, Wrench, Phone, MapPin, Mail, Star, Trash2, Pencil, Search } from "lucide-react";
+import { ArrowLeft, Plus, Wrench, Star } from "lucide-react";
 
 import WorkshopForm from '../components/forms/WorkshopForm';
 import WorkshopCard from '../components/workshops/WorkshopCard';

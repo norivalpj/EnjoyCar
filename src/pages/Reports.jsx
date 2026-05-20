@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Sparkles, FileText, TrendingUp, AlertTriangle, DollarSign, Download } from "lucide-react";
+import { ArrowLeft, Sparkles, FileText, TrendingUp, AlertTriangle, DollarSign } from "lucide-react";
 import AIReport from '../components/reports/AIReport';
 import CostDashboard from '../components/reports/CostDashboard';
 

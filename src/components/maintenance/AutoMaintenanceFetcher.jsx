@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Loader2, CheckCircle, ChevronDown, ChevronUp, BookOpen, AlertCircle } from "lucide-react";
+import { Sparkles, Loader2, CheckCircle, ChevronDown, ChevronUp, AlertCircle } from "lucide-react";
 
 const AutoMaintenanceFetcher = ({ vehicle, onComplete }) => {
   const queryClient = useQueryClient();

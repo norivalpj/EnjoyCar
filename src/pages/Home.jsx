@@ -7,16 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
-  Car, Plus, Wrench, DollarSign, Calendar, 
-  TrendingUp, AlertTriangle, ChevronRight, Bell, FileText, Settings, Phone, Star, MapPin
+  Car, Plus, Wrench, DollarSign, Calendar, ChevronRight, Bell, FileText, Phone, Star, MapPin
 } from "lucide-react";
-import { format, isAfter, addDays } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { isAfter, addDays } from "date-fns";
 
 import StatsCard from '../components/dashboard/StatsCard';
 import VehicleCard from '../components/vehicles/VehicleCard';
 import MaintenanceCard from '../components/maintenance/MaintenanceCard';
-import MaintenanceSuggestions from '../components/maintenance/MaintenanceSuggestions';
 import GuidedTour from '../components/onboarding/GuidedTour';
 import MaintenanceNotifications from '../components/notifications/MaintenanceNotifications';
 import NotificationService from '../components/notifications/NotificationService';

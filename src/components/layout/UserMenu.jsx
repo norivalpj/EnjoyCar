@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import React, { useState } from 'react';
+import { useAuth } from '@/lib/AuthContext';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import {
@@ -11,17 +11,13 @@ import { LogOut, Settings, MessageSquarePlus } from "lucide-react";
 import FeedbackDialog from './FeedbackDialog';
 
 export default function UserMenu() {
-  const [user, setUser] = useState(null);
+  const { user, logout } = useAuth();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
-
-  useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => {});
-  }, []);
 
   if (!user) return null;
 
-  const initials = user.full_name
-    ? user.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+  const initials = user.name
+    ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : (user.email?.[0] || '?').toUpperCase();
 
   return (
@@ -35,13 +31,13 @@ export default function UserMenu() {
             </AvatarFallback>
           </Avatar>
           <span className="hidden md:block text-sm font-medium text-slate-700 max-w-32 truncate">
-            {user.full_name || user.email}
+            {user.name || user.email}
           </span>
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>
-          <p className="font-medium text-sm">{user.full_name || 'Usuário'}</p>
+          <p className="font-medium text-sm">{user.name || 'Usuário'}</p>
           <p className="text-xs text-slate-500 font-normal truncate">{user.email}</p>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
@@ -58,7 +54,7 @@ export default function UserMenu() {
         <DropdownMenuSeparator />
         <DropdownMenuItem
           className="text-red-600 focus:text-red-600 cursor-pointer"
-          onClick={() => base44.auth.logout('/')}
+          onClick={() => logout(true)}
         >
           <LogOut className="w-4 h-4 mr-2" />
           Sair

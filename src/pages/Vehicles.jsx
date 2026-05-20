@@ -17,7 +17,6 @@ import { ArrowLeft, Plus, Car, Pencil, Trash2 } from "lucide-react";
 
 import VehicleCard from '../components/vehicles/VehicleCard';
 import VehicleForm from '../components/forms/VehicleForm';
-import VehicleFilters from '../components/filters/VehicleFilters';
 
 export default function Vehicles() {
   const queryClient = useQueryClient();
