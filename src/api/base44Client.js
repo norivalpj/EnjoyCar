@@ -218,9 +218,10 @@ export const base44 = {
     redirectToLogin: async (url) => { 
       const provider = new GoogleAuthProvider();
       try {
-        await signInWithPopup(auth, provider);
+        const result = await signInWithPopup(auth, provider);
         // After auth, optionally setup user profile if it doesn't exist
-        const ref = doc(db, 'users', auth.currentUser.uid);
+        const user = result.user;
+        const ref = doc(db, 'users', user.uid);
         const existing = await getDoc(ref);
         if (!existing.exists()) {
           await setDoc(ref, { 
@@ -231,6 +232,7 @@ export const base44 = {
         window.location.href = url || '/';
       } catch (err) {
         console.error("Login failed", err);
+        alert("Erro no login: " + err.message);
       }
     }
   },
