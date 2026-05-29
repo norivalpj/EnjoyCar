@@ -206,7 +206,13 @@ export const base44 = {
           ...customData
         };
       } catch (e) {
-        handleFirestoreError(e, 'get', 'users');
+        console.warn("Could not fetch user profile from Firestore, using default:", e);
+        return {
+          id: auth.currentUser.uid,
+          name: auth.currentUser.displayName,
+          email: auth.currentUser.email,
+          tour_completed: false
+        };
       }
     },
     updateMe: async (data) => {
