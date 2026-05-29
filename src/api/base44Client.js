@@ -29,8 +29,10 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const firestoreDatabaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID || '(default)';
-export const db = getFirestore(app, firestoreDatabaseId);
+const firestoreDatabaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID;
+export const db = firestoreDatabaseId && firestoreDatabaseId !== '(default)' 
+  ? getFirestore(app, firestoreDatabaseId) 
+  : getFirestore(app);
 export const auth = getAuth(app);
 
 const handleFirestoreError = (error, operationType, path) => {
@@ -233,13 +235,18 @@ export const base44 = {
         const result = await signInWithPopup(auth, provider);
         // After auth, optionally setup user profile if it doesn't exist
         const user = result.user;
-        const ref = doc(db, 'users', user.uid);
-        const existing = await getDoc(ref);
-        if (!existing.exists()) {
-          await setDoc(ref, { 
-            tour_completed: false, 
-            notifications_enabled: true 
-          });
+        try {
+          const ref = doc(db, 'users', user.uid);
+          const existing = await getDoc(ref);
+          if (!existing.exists()) {
+            await setDoc(ref, { 
+              tour_completed: false, 
+              notifications_enabled: true 
+            });
+          }
+        } catch (dbErr) {
+          console.warn("Could not setup user profile in Firestore (maybe offline or hasn't been created yet):", dbErr);
+          // Do not fail the login if just the database fetch fails
         }
         window.location.href = url || '/';
       } catch (err) {
