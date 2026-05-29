@@ -15,10 +15,22 @@ import {
   orderBy,
   serverTimestamp
 } from 'firebase/firestore';
-import firebaseConfig from '../../firebase-applet-config.json';
+import defaultFirebaseConfig from '../../firebase-applet-config.json';
+
+// Use environment variables (from Netlify, etc.) if available, otherwise fall back to user's config
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCaTgSYRk3si8dozZe2kZNpoUqKEBpmHXo",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "enjoycar-17ade.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "enjoycar-17ade",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "enjoycar-17ade.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "361779467613",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:361779467613:web:357bda95875b532ce2c4b4",
+  measurementId: "G-1NMKV0H228",
+};
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+const firestoreDatabaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID || '(default)';
+export const db = getFirestore(app, firestoreDatabaseId);
 export const auth = getAuth(app);
 
 const handleFirestoreError = (error, operationType, path) => {
