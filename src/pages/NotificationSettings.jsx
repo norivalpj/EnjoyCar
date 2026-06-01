@@ -20,6 +20,7 @@ export default function NotificationSettings() {
     notifications_enabled: true,
     notify_days_before: 30,
     notify_km_before: 500,
+    notify_mileage_days: 28,
   });
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -30,6 +31,7 @@ export default function NotificationSettings() {
         notifications_enabled: user.notifications_enabled ?? true,
         notify_days_before: user.notify_days_before ?? 30,
         notify_km_before: user.notify_km_before ?? 500,
+        notify_mileage_days: user.notify_mileage_days ?? 28,
       });
     }
   }, [user]);
@@ -40,6 +42,7 @@ export default function NotificationSettings() {
       notifications_enabled: form.notifications_enabled,
       notify_days_before: Number(form.notify_days_before),
       notify_km_before: Number(form.notify_km_before),
+      notify_mileage_days: Number(form.notify_mileage_days),
     });
     setSaving(false);
     setSaved(true);
@@ -146,11 +149,26 @@ export default function NotificationSettings() {
                   Lembrete Mensal de Quilometragem
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-5">
                 <p className="text-sm text-slate-600">
-                  A cada <strong>28 dias</strong>, você receberá um email lembrando de atualizar a quilometragem
-                  dos seus veículos, mantendo os alertas de manutenção precisos.
+                  Receba um email lembrando de atualizar a quilometragem dos seus veículos, mantendo os alertas de manutenção precisos.
                 </p>
+                <div>
+                  <Label className="text-sm font-medium text-slate-700 mb-2 block">
+                    Frequência do lembrete (dias)
+                  </Label>
+                  <div className="flex items-center gap-3">
+                    <Input
+                      type="number"
+                      min={7}
+                      max={365}
+                      value={form.notify_mileage_days}
+                      onChange={(e) => setForm(f => ({ ...f, notify_mileage_days: e.target.value }))}
+                      className="w-32 bg-white"
+                    />
+                    <span className="text-slate-500 text-sm">dias</span>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
@@ -164,7 +182,7 @@ export default function NotificationSettings() {
                   <li>• Os alertas são verificados sempre que você abre o app</li>
                   <li>• O email é enviado para: <strong>{user?.email}</strong></li>
                   <li>• Alertas de manutenção: no máximo 1 email por dia</li>
-                  <li>• Lembrete de quilometragem: a cada 28 dias</li>
+                  <li>• Lembrete de quilometragem: a cada {form.notify_mileage_days} dias</li>
                 </ul>
               </CardContent>
             </Card>

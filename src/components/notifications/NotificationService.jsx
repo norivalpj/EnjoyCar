@@ -7,7 +7,7 @@ import { differenceInDays, parseISO, isValid } from 'date-fns';
  * Invisible service component – mounts once in Home and fires emails when needed.
  * Rules:
  *  - Maintenance alert: at most once per day, if any plan is within 30 days OR 500 km
- *  - Mileage reminder: at most once per 28 days
+ *  - Mileage reminder: configured per user, default 28 days
  */
 export default function NotificationService() {
   const { data: user } = useQuery({
@@ -40,9 +40,10 @@ export default function NotificationService() {
     const daysSinceLastMileage = lastMileage && isValid(lastMileage)
       ? differenceInDays(now, lastMileage)
       : 999;
+    const mileageDays = user.notify_mileage_days ?? 28;
 
-    if (daysSinceLastMileage >= 28) {
-      sendMileageReminder(user, vehicles);
+    if (daysSinceLastMileage >= mileageDays) {
+      sendMileageReminder(user, vehicles, mileageDays);
     }
 
     // ── 2. MAINTENANCE ALERT ─────────────────────────────────────────────────
@@ -91,16 +92,16 @@ export default function NotificationService() {
 
 // ── Email senders ────────────────────────────────────────────────────────────
 
-async function sendMileageReminder(user, vehicles) {
+async function sendMileageReminder(user, vehicles, mileageDays) {
   const vehicleList = vehicles
     .map(v => `• ${v.brand} ${v.model} (${v.license_plate}) — atual: ${v.current_mileage ? v.current_mileage.toLocaleString('pt-BR') + ' km' : 'não informado'}`)
     .join('\n');
 
   const body = `Olá${user.full_name ? ', ' + user.full_name : ''}!
 
-🚗 Lembrete mensal: atualize a quilometragem dos seus veículos
+🚗 Lembrete: atualize a quilometragem dos seus veículos
 
-Para que os alertas de manutenção sejam precisos, mantenha a quilometragem atualizada no app.
+Para que os alertas de manutenção sejam precisos, mantenha a quilometragem atualizada. Este lembrete está configurado para a cada ${mileageDays} dias.
 
 Seus veículos cadastrados:
 ${vehicleList}
