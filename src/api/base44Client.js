@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { 
   getFirestore, 
   collection, 
@@ -34,6 +35,7 @@ export const db = firestoreDatabaseId && firestoreDatabaseId !== '(default)'
   ? getFirestore(app, firestoreDatabaseId) 
   : getFirestore(app);
 export const auth = getAuth(app);
+export const storage = getStorage(app);
 
 const handleFirestoreError = (error, operationType, path) => {
   const errInfo = {
@@ -174,17 +176,30 @@ export const base44 = {
   },
   integrations: {
     Core: {
-      InvokeLLM: async ({ prompt }) => {
-         await sleep(500);
-         return { response: "Mock LLM Response. This app is running with a local mocked Base44 SDK." };
+      InvokeLLM: async ({ prompt, add_context_from_internet, response_json_schema }) => {
+         const response = await fetch('/api/invoke-llm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt, add_context_from_internet, response_json_schema })
+         });
+         return response.json();
       },
       UploadFile: async ({ file }) => {
-         await sleep(500);
-         return { file_url: "https://placehold.co/150", file_id: generateId() };
+        if (!auth.currentUser) throw new Error("Unauthorized");
+        const ext = file.name.split('.').pop();
+        const fileName = `${auth.currentUser.uid}/${Date.now()}_${Math.random().toString(36).substring(2,9)}.${ext}`;
+        const fileRef = storageRef(storage, `uploads/${fileName}`);
+        await uploadBytes(fileRef, file);
+        const file_url = await getDownloadURL(fileRef);
+        return { file_url, file_id: fileName };
       },
-      ExtractDataFromUploadedFile: async ({ file_id, schema }) => {
-         await sleep(500);
-         return "Mock extracted data from file";
+      ExtractDataFromUploadedFile: async ({ file_url, json_schema }) => {
+         const response = await fetch('/api/extract-data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file_url, json_schema })
+         });
+         return response.json();
       },
       SendEmail: async () => {
          await sleep(200);
