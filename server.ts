@@ -11,27 +11,51 @@ async function startServer() {
 
   // API endpoints
   app.post("/api/extract-data", async (req, res) => {
+    console.log("-> /api/extract-data called with:", req.body);
     try {
-      const { file_url, json_schema } = req.body;
+      let { file_url, json_schema } = req.body;
       if (!file_url || !json_schema) {
+        console.log("Missing file_url or json_schema");
         return res.status(400).json({ error: "Missing file_url or json_schema" });
       }
 
+      // Fix schema types to be uppercase as required by GenAI SDK
+      const fixSchemaTypes = (schema) => {
+        if (!schema || typeof schema !== 'object') return;
+        if (schema.type && typeof schema.type === 'string') {
+          schema.type = schema.type.toUpperCase();
+        }
+        if (schema.properties) {
+          Object.values(schema.properties).forEach(fixSchemaTypes);
+        }
+        if (schema.items) {
+          fixSchemaTypes(schema.items);
+        }
+      };
+      fixSchemaTypes(json_schema);
+      console.log("Fixed schema:", JSON.stringify(json_schema));
+
       if (!process.env.GEMINI_API_KEY) {
+        console.error("GEMINI_API_KEY is not configured.");
         throw new Error("GEMINI_API_KEY is not configured.");
       }
 
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       
-      // Fetch the file as ArrayBuffer
+      console.log("Fetching file from url:", file_url);
       const fileRes = await fetch(file_url);
-      if (!fileRes.ok) throw new Error("Failed to fetch the file from URL");
+      if (!fileRes.ok) {
+        console.error("Failed to fetch the file from URL", fileRes.status, fileRes.statusText);
+        throw new Error("Failed to fetch the file from URL");
+      }
       
+      console.log("File fetched, reading buffer...");
       const buffer = await fileRes.arrayBuffer();
       const mimeType = fileRes.headers.get("content-type") || "image/jpeg";
+      console.log("Buffer read. Generating content with Gemini...");
       
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.5-flash',
         contents: [
           {
             role: 'user',
@@ -51,14 +75,17 @@ async function startServer() {
           responseSchema: json_schema
         }
       });
+      console.log("Gemini response parsing...");
       
       let parsed = {};
       try {
         parsed = JSON.parse(response.text);
       } catch (e) {
+        console.error("Gemini output parsing failed:", response.text);
         return res.status(500).json({ status: 'error', error: "Failed to parse JSON output" });
       }
-
+      
+      console.log("Successfully extracted data. Returning to client.");
       return res.json({ status: 'success', output: parsed });
     } catch (error) {
       console.error("/api/extract-data error:", error);
@@ -68,10 +95,27 @@ async function startServer() {
 
   app.post("/api/invoke-llm", async (req, res) => {
     try {
-      const { prompt, response_json_schema } = req.body;
+      let { prompt, response_json_schema } = req.body;
       
       if (!process.env.GEMINI_API_KEY) {
         throw new Error("GEMINI_API_KEY is not configured.");
+      }
+
+      // Fix schema types to be uppercase as required by GenAI SDK
+      const fixSchemaTypes = (schema) => {
+        if (!schema || typeof schema !== 'object') return;
+        if (schema.type && typeof schema.type === 'string') {
+          schema.type = schema.type.toUpperCase();
+        }
+        if (schema.properties) {
+          Object.values(schema.properties).forEach(fixSchemaTypes);
+        }
+        if (schema.items) {
+          fixSchemaTypes(schema.items);
+        }
+      };
+      if (response_json_schema) {
+         fixSchemaTypes(response_json_schema);
       }
       
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -84,7 +128,7 @@ async function startServer() {
       }
       
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.5-flash',
         contents: prompt,
         config
       });
