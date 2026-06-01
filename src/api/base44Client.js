@@ -239,7 +239,6 @@ export const base44 = {
       const provider = new GoogleAuthProvider();
       try {
         const result = await signInWithPopup(auth, provider);
-        // After auth, optionally setup user profile if it doesn't exist
         const user = result.user;
         try {
           const ref = doc(db, 'users', user.uid);
@@ -251,10 +250,16 @@ export const base44 = {
             });
           }
         } catch (dbErr) {
-          console.warn("Could not setup user profile in Firestore (maybe offline or hasn't been created yet):", dbErr);
-          // Do not fail the login if just the database fetch fails
+          console.warn("Could not setup user profile in Firestore:", dbErr);
         }
-        window.location.href = url || '/';
+        // Do not force reload, just change the URL path if necessary or let the SPA router handle it.
+        if (url) {
+          // If url is a full origin URL, strip it to path for History API, else use as is
+          const path = url.startsWith(window.location.origin) ? url.replace(window.location.origin, '') : url;
+          window.history.pushState({}, '', path);
+          // Dispatch a popstate event to let React Router know the URL changed
+          window.dispatchEvent(new PopStateEvent('popstate'));
+        }
       } catch (err) {
         console.error("Login failed", err);
         alert("Erro no login: " + err.message);
