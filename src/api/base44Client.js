@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { resizeImage } from '@/lib/imageUtils';
 import { 
   getFirestore, 
   collection, 
@@ -186,10 +187,11 @@ export const base44 = {
       },
       UploadFile: async ({ file }) => {
         if (!auth.currentUser) throw new Error("Unauthorized");
-        const ext = file.name.split('.').pop();
+        const optimizedFile = await resizeImage(file, 1500, 1500, 0.8);
+        const ext = optimizedFile.name.split('.').pop();
         const fileName = `${auth.currentUser.uid}/${Date.now()}_${Math.random().toString(36).substring(2,9)}.${ext}`;
         const fileRef = storageRef(storage, `uploads/${fileName}`);
-        await uploadBytes(fileRef, file);
+        await uploadBytes(fileRef, optimizedFile);
         const file_url = await getDownloadURL(fileRef);
         return { file_url, file_id: fileName };
       },
