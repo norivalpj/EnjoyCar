@@ -43,7 +43,9 @@ async function startServer() {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       
       console.log("Fetching file from url:", file_url);
-      const fileRes = await fetch(file_url);
+      const fileRes = await fetch(file_url, {
+        signal: AbortSignal.timeout(15000) // 15 seconds max to download
+      });
       if (!fileRes.ok) {
         console.error("Failed to fetch the file from URL", fileRes.status, fileRes.statusText);
         throw new Error("Failed to fetch the file from URL");
@@ -51,11 +53,18 @@ async function startServer() {
       
       console.log("File fetched, reading buffer...");
       const buffer = await fileRes.arrayBuffer();
-      const mimeType = fileRes.headers.get("content-type") || "image/jpeg";
-      console.log("Buffer read. Generating content with Gemini...");
+      let mimeType = (fileRes.headers.get("content-type") || "image/jpeg").split(';')[0].trim();
+      if (mimeType === 'application/octet-stream' || mimeType === 'application/x-www-form-urlencoded') {
+        const urlLower = file_url.toLowerCase();
+        if (urlLower.includes('.pdf')) mimeType = 'application/pdf';
+        else if (urlLower.includes('.png')) mimeType = 'image/png';
+        else if (urlLower.includes('.jpg') || urlLower.includes('.jpeg')) mimeType = 'image/jpeg';
+        else mimeType = 'image/jpeg';
+      }
+      console.log("Buffer read. MimeType:", mimeType, "Generating content with Gemini...");
       
       const response = await ai.models.generateContent({
-        model: 'gemini-flash-latest',
+        model: 'gemini-2.5-flash',
         contents: [
           {
             role: 'user',

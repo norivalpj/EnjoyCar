@@ -191,7 +191,8 @@ export const base44 = {
         const ext = optimizedFile.name.split('.').pop();
         const fileName = `${auth.currentUser.uid}/${Date.now()}_${Math.random().toString(36).substring(2,9)}.${ext}`;
         const fileRef = storageRef(storage, `uploads/${fileName}`);
-        await uploadBytes(fileRef, optimizedFile);
+        const metadata = { contentType: optimizedFile.type };
+        await uploadBytes(fileRef, optimizedFile, metadata);
         const file_url = await getDownloadURL(fileRef);
         return { file_url, file_id: fileName };
       },
