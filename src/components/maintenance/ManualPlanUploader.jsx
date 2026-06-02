@@ -78,9 +78,12 @@ const ManualPlanUploader = ({ vehicleId, onPlanExtracted }) => {
         if (onPlanExtracted) {
           onPlanExtracted(plan);
         }
+      } else {
+        alert("Não foi possível extrair um plano de manutenção dessa imagem.");
       }
     } catch (error) {
       console.error('Error extracting maintenance plan:', error);
+      alert("Houve um erro na comunicação com o servidor.");
       setIsExtracting(false);
     }
   };

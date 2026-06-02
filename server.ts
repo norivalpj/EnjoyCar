@@ -55,7 +55,7 @@ async function startServer() {
       console.log("Buffer read. Generating content with Gemini...");
       
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-flash-latest',
         contents: [
           {
             role: 'user',
@@ -79,7 +79,10 @@ async function startServer() {
       
       let parsed = {};
       try {
-        parsed = JSON.parse(response.text);
+        let text = response.text || "";
+        // Remove markdown code blocks if present
+        text = text.replace(/^```(json)?\n?/, "").replace(/\n?```$/, "").trim();
+        parsed = JSON.parse(text);
       } catch (e) {
         console.error("Gemini output parsing failed:", response.text);
         return res.status(500).json({ status: 'error', error: "Failed to parse JSON output" });
@@ -128,7 +131,7 @@ async function startServer() {
       }
       
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-flash-latest',
         contents: prompt,
         config
       });
@@ -136,7 +139,9 @@ async function startServer() {
       if (response_json_schema) {
          let parsed = {};
          try {
-           parsed = JSON.parse(response.text);
+           let text = response.text || "";
+           text = text.replace(/^```(json)?\n?/, "").replace(/\n?```$/, "").trim();
+           parsed = JSON.parse(text);
          } catch (e) {
            return res.status(500).json({ error: "Failed to parse JSON" });
          }

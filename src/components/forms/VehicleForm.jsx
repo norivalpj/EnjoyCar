@@ -194,9 +194,12 @@ const VehicleForm = ({ initialData = {}, onSubmit, onCancel, isLoading }) => {
         if (extracted.vehicle_year && !formData.year) handleChange('year', extracted.vehicle_year);
         if (extracted.vehicle_color && !formData.color) handleChange('color', extracted.vehicle_color);
         if (extracted.license_plate && !formData.license_plate) handleChange('license_plate', extracted.license_plate.toUpperCase());
+      } else {
+        alert("Não foi possível processar a nota fiscal: " + (result.error || "Tente novamente mais tarde."));
       }
     } catch (error) {
       console.error('Error processing invoice:', error);
+      alert("Houve um erro na comunicação com o servidor ao processar a nota fiscal.");
       setIsUploading(false);
       setIsExtractingInvoice(false);
     }

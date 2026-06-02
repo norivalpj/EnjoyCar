@@ -68,10 +68,12 @@ const ManualHistoryUploader = ({ onHistoryExtracted }) => {
       if (allMaintenances.length > 0) {
         onHistoryExtracted(allMaintenances);
       } else {
+        alert("Não foi possível extrair dados ou nenhum dado encontrado neste manual.");
         onHistoryExtracted([]);
       }
     } catch (error) {
       console.error('Error processing manual:', error);
+      alert("Houve um erro na comunicação com o servidor ao processar o manual.");
       setIsUploading(false);
       setIsExtracting(false);
     }

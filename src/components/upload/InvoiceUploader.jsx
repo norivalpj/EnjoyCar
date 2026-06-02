@@ -93,10 +93,12 @@ const InvoiceUploader = ({ onDataExtracted, onFileUploaded }) => {
       if (result.status === 'success' && result.output) {
         onDataExtracted(result.output);
       } else {
+        alert("Não foi possível processar a nota/recibo: " + (result.error || "Tente novamente mais tarde."));
         onDataExtracted(null);
       }
     } catch (error) {
       console.error('Error processing file:', error);
+      alert("Houve um erro na comunicação com o servidor ao processar o arquivo.");
       setIsUploading(false);
       setIsExtracting(false);
     }
