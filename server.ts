@@ -11,12 +11,12 @@ async function startServer() {
 
   // API endpoints
   app.post("/api/extract-data", async (req, res) => {
-    console.log("-> /api/extract-data called with:", req.body);
+    console.log("-> /api/extract-data called with:", req.body ? Object.keys(req.body) : "nothing");
     try {
-      let { file_url, json_schema } = req.body;
-      if (!file_url || !json_schema) {
-        console.log("Missing file_url or json_schema");
-        return res.status(400).json({ error: "Missing file_url or json_schema" });
+      let { file_url, file_base64, mime_type, json_schema } = req.body;
+      if ((!file_url && !file_base64) || !json_schema) {
+        console.log("Missing file_url / file_base64 or json_schema");
+        return res.status(400).json({ error: "Missing file_url / file_base64 or json_schema" });
       }
 
       // Fix schema types to be uppercase as required by GenAI SDK
@@ -42,48 +42,81 @@ async function startServer() {
 
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       
-      console.log("Fetching file from url:", file_url);
-      const fileRes = await fetch(file_url, {
-        signal: AbortSignal.timeout(15000) // 15 seconds max to download
-      });
-      if (!fileRes.ok) {
-        console.error("Failed to fetch the file from URL", fileRes.status, fileRes.statusText);
-        throw new Error("Failed to fetch the file from URL");
-      }
-      
-      console.log("File fetched, reading buffer...");
-      const buffer = await fileRes.arrayBuffer();
-      let mimeType = (fileRes.headers.get("content-type") || "image/jpeg").split(';')[0].trim();
-      if (mimeType === 'application/octet-stream' || mimeType === 'application/x-www-form-urlencoded') {
-        const urlLower = file_url.toLowerCase();
-        if (urlLower.includes('.pdf')) mimeType = 'application/pdf';
-        else if (urlLower.includes('.png')) mimeType = 'image/png';
-        else if (urlLower.includes('.jpg') || urlLower.includes('.jpeg')) mimeType = 'image/jpeg';
-        else mimeType = 'image/jpeg';
-      }
-      console.log("Buffer read. MimeType:", mimeType, "Generating content with Gemini...");
-      
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              {
-                inlineData: {
-                  data: Buffer.from(buffer).toString("base64"),
-                  mimeType
-                }
-              },
-              { text: "Extract the data requested in the JSON schema from this file. If it's a receipt/invoice, look for vehicle information, store info, etc." }
-            ]
-          }
-        ],
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: json_schema
+      let finalBase64 = file_base64;
+      let targetMimeType = mime_type || "image/jpeg";
+
+      if (!finalBase64 && file_url) {
+        console.log("Fetching file from url:", file_url);
+        const fileRes = await fetch(file_url, {
+          signal: AbortSignal.timeout(15000) // 15 seconds max to download
+        });
+        if (!fileRes.ok) {
+          console.error("Failed to fetch the file from URL", fileRes.status, fileRes.statusText);
+          throw new Error("Failed to fetch the file from URL");
         }
-      });
+        
+        console.log("File fetched, reading buffer...");
+        const buffer = await fileRes.arrayBuffer();
+        targetMimeType = (fileRes.headers.get("content-type") || "image/jpeg").split(';')[0].trim();
+        if (targetMimeType === 'application/octet-stream' || targetMimeType === 'application/x-www-form-urlencoded') {
+          const urlLower = file_url.toLowerCase();
+          if (urlLower.includes('.pdf')) targetMimeType = 'application/pdf';
+          else if (urlLower.includes('.png')) targetMimeType = 'image/png';
+          else if (urlLower.includes('.jpg') || urlLower.includes('.jpeg')) targetMimeType = 'image/jpeg';
+          else targetMimeType = 'image/jpeg';
+        }
+        finalBase64 = Buffer.from(buffer).toString("base64");
+      }
+
+      // If the file_base64 came with data URI prefix, remove it:
+      if (finalBase64 && finalBase64.startsWith('data:')) {
+        const matches = finalBase64.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
+        if (matches) {
+           targetMimeType = matches[1];
+           finalBase64 = matches[2];
+        } else {
+           finalBase64 = finalBase64.split(',')[1] || finalBase64;
+        }
+      }
+
+      console.log("Buffer read. MimeType:", targetMimeType, "Generating content with Gemini...");
+      
+      let response;
+      let attempt = 0;
+      const maxRetries = 3;
+      while (attempt < maxRetries) {
+        try {
+          response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: [
+              {
+                role: 'user',
+                parts: [
+                  {
+                    inlineData: {
+                      data: finalBase64,
+                      mimeType: targetMimeType
+                    }
+                  },
+                  { text: "Extract the data requested in the JSON schema from this file. If it's a receipt/invoice, look for vehicle information, store info, etc." }
+                ]
+              }
+            ],
+            config: {
+              responseMimeType: "application/json",
+              responseSchema: json_schema
+            }
+          });
+          break; // Success
+        } catch (err) {
+          attempt++;
+          if (attempt >= maxRetries || (!err.message?.includes("503") && !err.message?.includes("429"))) {
+            throw err;
+          }
+          console.log(`Gemini API error ${err.message}, retrying attempt ${attempt}...`);
+          await new Promise(r => setTimeout(r, 10000 * attempt));
+        }
+      }
       console.log("Gemini response parsing...");
       
       let parsed = {};
@@ -139,11 +172,26 @@ async function startServer() {
          config.responseSchema = response_json_schema;
       }
       
-      const response = await ai.models.generateContent({
-        model: 'gemini-flash-latest',
-        contents: prompt,
-        config
-      });
+      let response;
+      let attempt = 0;
+      const maxRetries = 3;
+      while (attempt < maxRetries) {
+        try {
+          response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config
+          });
+          break;
+        } catch (err) {
+          attempt++;
+          if (attempt >= maxRetries || (!err.message?.includes("503") && !err.message?.includes("429"))) {
+            throw err;
+          }
+          console.log(`Gemini API error ${err.message}, retrying attempt ${attempt}...`);
+          await new Promise(r => setTimeout(r, 10000 * attempt));
+        }
+      }
       
       if (response_json_schema) {
          let parsed = {};

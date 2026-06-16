@@ -1,4 +1,4 @@
-export const resizeImage = (file, maxWidth = 1500, maxHeight = 1500, quality = 0.8) => {
+export const resizeImage = (file, maxWidth = 500, maxHeight = 500, quality = 0.4) => {
   return new Promise((resolve, reject) => {
     // Check if it is an image
     if (!file.type.match(/image.*/)) {

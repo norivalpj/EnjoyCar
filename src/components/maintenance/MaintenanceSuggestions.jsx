@@ -12,8 +12,8 @@ const MaintenanceSuggestions = ({ vehicleId }) => {
   const { data: vehicle } = useQuery({
     queryKey: ['vehicle', vehicleId],
     queryFn: async () => {
-      const results = await base44.entities.Vehicle.filter({ id: vehicleId });
-      return results[0];
+      const result = await base44.entities.Vehicle.get(vehicleId);
+      return result || null;
     },
     enabled: !!vehicleId
   });

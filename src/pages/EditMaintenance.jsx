@@ -19,8 +19,8 @@ export default function EditMaintenance() {
   const { data: maintenance, isLoading: loadingMaintenance } = useQuery({
     queryKey: ['maintenance', maintenanceId],
     queryFn: async () => {
-      const results = await base44.entities.Maintenance.filter({ id: maintenanceId });
-      return results[0];
+      const result = await base44.entities.Maintenance.get(maintenanceId);
+      return result || null;
     },
     enabled: !!maintenanceId
   });
@@ -69,7 +69,7 @@ export default function EditMaintenance() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
+    <div className="bg-gradient-to-br from-slate-50 via-white to-blue-50 flex-1 h-full">
       <div className="max-w-3xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">

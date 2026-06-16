@@ -29,8 +29,8 @@ export default function NewMaintenance() {
   const { data: plan } = useQuery({
     queryKey: ['plan', planId],
     queryFn: async () => {
-      const results = await base44.entities.MaintenancePlan.filter({ id: planId });
-      return results[0];
+      const result = await base44.entities.MaintenancePlan.get(planId);
+      return result || null;
     },
     enabled: !!planId
   });
@@ -101,7 +101,7 @@ export default function NewMaintenance() {
   }, [plan, preselectedVehicleId]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
+    <div className="bg-gradient-to-br from-slate-50 via-white to-blue-50 flex-1 h-full">
       <div className="max-w-3xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">

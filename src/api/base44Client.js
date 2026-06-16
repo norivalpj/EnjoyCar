@@ -4,6 +4,7 @@ import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'fire
 import { resizeImage } from '@/lib/imageUtils';
 import { 
   getFirestore, 
+  enableIndexedDbPersistence,
   collection, 
   doc, 
   setDoc, 
@@ -21,20 +22,30 @@ import defaultFirebaseConfig from '../../firebase-applet-config.json';
 
 // Use environment variables (from Netlify, etc.) if available, otherwise fall back to user's config
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCaTgSYRk3si8dozZe2kZNpoUqKEBpmHXo",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "enjoycar-17ade.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "enjoycar-17ade",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "enjoycar-17ade.firebasestorage.app",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "361779467613",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:361779467613:web:357bda95875b532ce2c4b4",
-  measurementId: "G-1NMKV0H228",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || defaultFirebaseConfig.apiKey,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || defaultFirebaseConfig.authDomain,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || defaultFirebaseConfig.projectId,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || defaultFirebaseConfig.storageBucket,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || defaultFirebaseConfig.messagingSenderId,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || defaultFirebaseConfig.appId,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || defaultFirebaseConfig.measurementId || "",
 };
 
 const app = initializeApp(firebaseConfig);
-const firestoreDatabaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID;
+const firestoreDatabaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID || defaultFirebaseConfig.firestoreDatabaseId;
 export const db = firestoreDatabaseId && firestoreDatabaseId !== '(default)' 
   ? getFirestore(app, firestoreDatabaseId) 
   : getFirestore(app);
+
+// Enable offline persistence
+enableIndexedDbPersistence(db).catch((err) => {
+  if (err.code == 'failed-precondition') {
+    console.warn('Multiple tabs open, persistence can only be enabled in one tab at a a time.');
+  } else if (err.code == 'unimplemented') {
+    console.warn('The current browser does not support all of the features required to enable persistence');
+  }
+});
+
 export const auth = getAuth(app);
 export const storage = getStorage(app);
 
@@ -67,11 +78,28 @@ function generateId() {
   return Math.random().toString(36).substring(2, 9);
 }
 
+const getLocalCache = (key) => {
+  try {
+    const item = localStorage.getItem(`base44_cache_${key}`);
+    if (item) return JSON.parse(item);
+  } catch(e) {}
+  return null;
+};
+
+const setLocalCache = (key, data) => {
+  try {
+    localStorage.setItem(`base44_cache_${key}`, JSON.stringify(data));
+  } catch(e) {}
+};
+
 const createFirebaseEntity = (entityName, collectionName) => {
   return {
     list: async (sortStr) => {
       try {
         if (!auth.currentUser) return [];
+        const cacheKey = `${collectionName}_list_${auth.currentUser.uid}_${sortStr || 'default'}`;
+        const cached = getLocalCache(cacheKey);
+        
         let q = collection(db, collectionName);
         q = query(q, where('userId', '==', auth.currentUser.uid));
         
@@ -82,8 +110,19 @@ const createFirebaseEntity = (entityName, collectionName) => {
           q = query(q, orderBy(field, isDesc ? 'desc' : 'asc'));
         }
         
-        const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const fetchPromise = getDocs(q).then(snapshot => {
+          const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setLocalCache(cacheKey, data);
+          return data;
+        }).catch(err => {
+          console.error("Firestore list error, relying on cache.", err);
+          if (cached) return cached;
+          throw err;
+        });
+
+        // Use cache immediately if available to reduce DB reads, then silently update if needed 
+        // Or wait for it if not cached
+        return cached ? cached : await fetchPromise;
       } catch (error) {
         handleFirestoreError(error, 'list', collectionName);
       }
@@ -111,16 +150,46 @@ const createFirebaseEntity = (entityName, collectionName) => {
         handleFirestoreError(error, 'list', collectionName);
       }
     },
+    get: async (id) => {
+      try {
+        if (!auth.currentUser) return null;
+        const cacheKey = `${collectionName}_get_${id}`;
+        const cached = getLocalCache(cacheKey);
+        
+        const fetchPromise = getDoc(doc(db, collectionName, id)).then(snapshot => {
+          if (snapshot.exists()) {
+            const data = snapshot.data();
+            if (data.userId === auth.currentUser.uid) {
+              const result = { id: snapshot.id, ...data };
+              setLocalCache(cacheKey, result);
+              return result;
+            }
+          }
+          return null;
+        }).catch(err => {
+          console.error("Firestore get error, relying on cache.", err);
+          if (cached) return cached;
+          throw err;
+        });
+
+        return cached ? cached : await fetchPromise;
+      } catch (error) {
+        handleFirestoreError(error, 'get', `${collectionName}/${id}`);
+      }
+    },
     create: async (data) => {
       try {
         if (!auth.currentUser) throw new Error("Unauthorized");
         const payload = { 
           ...data, 
           userId: auth.currentUser.uid, 
-          createdAt: serverTimestamp() 
+          // Use client timestamp to avoid waiting for server sync on offline or slow connections
+          createdAt: new Date().toISOString()
         };
         const docRef = await addDoc(collection(db, collectionName), payload);
-        return { id: docRef.id, ...payload };
+        const result = { id: docRef.id, ...payload };
+        setLocalCache(`${collectionName}_get_${docRef.id}`, result);
+        return result;
       } catch (error) {
         handleFirestoreError(error, 'create', collectionName);
       }
@@ -133,7 +202,7 @@ const createFirebaseEntity = (entityName, collectionName) => {
           const payload = { 
             ...data, 
             userId: auth.currentUser.uid, 
-            createdAt: serverTimestamp() 
+            createdAt: new Date().toISOString()
           };
           const docRef = await addDoc(collection(db, collectionName), payload);
           results.push({ id: docRef.id, ...payload });
@@ -147,10 +216,11 @@ const createFirebaseEntity = (entityName, collectionName) => {
       try {
         if (!auth.currentUser) throw new Error("Unauthorized");
         const docRef = doc(db, collectionName, id);
-        const updatePayload = { ...data, updatedAt: serverTimestamp() };
+        const updatePayload = { ...data, updatedAt: new Date().toISOString() };
         await updateDoc(docRef, updatePayload);
-        const updated = await getDoc(docRef);
-        return { id: updated.id, ...updated.data() };
+        const result = { id, ...data, updatedAt: updatePayload.updatedAt };
+        setLocalCache(`${collectionName}_get_${id}`, result);
+        return result;
       } catch (error) {
         handleFirestoreError(error, 'update', `${collectionName}/${id}`);
       }
@@ -160,6 +230,9 @@ const createFirebaseEntity = (entityName, collectionName) => {
         if (!auth.currentUser) throw new Error("Unauthorized");
         const docRef = doc(db, collectionName, id);
         await deleteDoc(docRef);
+        try {
+           localStorage.removeItem(`base44_cache_${collectionName}_get_${id}`);
+        } catch(e){}
         return { success: true };
       } catch (error) {
         handleFirestoreError(error, 'delete', `${collectionName}/${id}`);
@@ -187,20 +260,48 @@ export const base44 = {
       },
       UploadFile: async ({ file }) => {
         if (!auth.currentUser) throw new Error("Unauthorized");
-        const optimizedFile = await resizeImage(file, 1500, 1500, 0.8);
-        const ext = optimizedFile.name.split('.').pop();
-        const fileName = `${auth.currentUser.uid}/${Date.now()}_${Math.random().toString(36).substring(2,9)}.${ext}`;
-        const fileRef = storageRef(storage, `uploads/${fileName}`);
-        const metadata = { contentType: optimizedFile.type };
-        await uploadBytes(fileRef, optimizedFile, metadata);
-        const file_url = await getDownloadURL(fileRef);
+        
+        let optimizedFile = file;
+        
+        if (file.type && file.type.match(/image.*/)) {
+          // Optimize the image heavily to keep base64 string size small (~15-30KB)
+          optimizedFile = await resizeImage(file, 500, 500, 0.4);
+        } else {
+          // If it's a PDF or something else, prevent massive files from crashing Firestore
+          if (file.size > 500 * 1024) { // 500 KB limit for non-images
+            throw new Error("Arquivo PDF ou documento muito grande. Para o plano gratuito, envie arquivos menores que 500KB.");
+          }
+        }
+        
+        // Convert to Base64
+        const file_url = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(optimizedFile);
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = error => reject(error);
+        });
+        
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(2,9)}`;
         return { file_url, file_id: fileName };
       },
-      ExtractDataFromUploadedFile: async ({ file_url, json_schema }) => {
+      ExtractDataFromUploadedFile: async ({ file_url, file, json_schema }) => {
+         const payload = { json_schema };
+         if (file) {
+            const toBase64 = f => new Promise((resolve, reject) => {
+               const reader = new FileReader();
+               reader.readAsDataURL(f);
+               reader.onload = () => resolve(reader.result);
+               reader.onerror = error => reject(error);
+            });
+            payload.file_base64 = await toBase64(file);
+            payload.mime_type = file.type;
+         } else {
+            payload.file_url = file_url;
+         }
          const response = await fetch('/api/extract-data', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ file_url, json_schema })
+            body: JSON.stringify(payload)
          });
          return response.json();
       },
@@ -238,15 +339,11 @@ export const base44 = {
       try {
         const id = auth.currentUser.uid;
         const ref = doc(db, 'users', id);
-        const current = await getDoc(ref);
-        if (current.exists()) {
-          await updateDoc(ref, data);
-        } else {
-          await setDoc(ref, data);
-        }
+        await setDoc(ref, data, { merge: true });
         return data;
       } catch (e) {
-        handleFirestoreError(e, 'update', 'users');
+        console.warn("Could not sync user profile to Firestore (might be offline)", e);
+        return data; // Optimistically return
       }
     },
     logout: async (url) => { 

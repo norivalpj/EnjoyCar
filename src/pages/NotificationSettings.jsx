@@ -8,13 +8,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Bell, BellOff, Mail, Gauge, Calendar, CheckCircle } from "lucide-react";
+import { ArrowLeft, Bell, BellOff, Mail, Gauge, Calendar, CheckCircle, Globe } from "lucide-react";
+import StorageMonitor from '../components/settings/StorageMonitor';
+import DataBackup from '../components/settings/DataBackup';
+import { useTranslation } from 'react-i18next';
 
 export default function NotificationSettings() {
   const { data: user, isLoading } = useQuery({
     queryKey: ['me'],
     queryFn: () => base44.auth.me(),
   });
+
+  const { t, i18n } = useTranslation();
 
   const [form, setForm] = useState({
     notifications_enabled: true,
@@ -58,7 +63,7 @@ export default function NotificationSettings() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
+    <div className="bg-gradient-to-br from-slate-50 via-white to-blue-50 flex-1 h-full">
       <div className="max-w-2xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
@@ -68,9 +73,44 @@ export default function NotificationSettings() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">Notificações</h1>
-            <p className="text-slate-500 text-sm mt-0.5">Configure alertas por email</p>
+            <h1 className="text-2xl font-bold text-slate-800">Configurações</h1>
+            <p className="text-slate-500 text-sm mt-0.5">Gerencie alertas, dados e conta</p>
           </div>
+        </div>
+
+        {/* Language Selection */}
+        <Card className="mb-6">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Globe className="w-6 h-6 text-blue-600" />
+                <div>
+                  <p className="font-semibold text-slate-800">{t('settings.language')}</p>
+                </div>
+              </div>
+              <select
+                className="flex h-10 w-40 items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-950 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={i18n.language}
+                onChange={(e) => i18n.changeLanguage(e.target.value)}
+              >
+                <option value="pt">{t('settings.portuguese')}</option>
+                <option value="en">{t('settings.english')}</option>
+                <option value="es">{t('settings.spanish')}</option>
+              </select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Data Backup */}
+        <Card className="mb-6">
+          <CardContent className="p-6">
+            <DataBackup />
+          </CardContent>
+        </Card>
+
+        {/* Storage Monitoring for Admin */}
+        <div className="mb-6">
+            <StorageMonitor user={user} />
         </div>
 
         {/* Enable/Disable */}

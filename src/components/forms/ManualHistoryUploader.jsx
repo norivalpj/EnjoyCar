@@ -16,21 +16,21 @@ const ManualHistoryUploader = ({ onHistoryExtracted }) => {
     setIsUploading(true);
     
     try {
-      // Upload all files
-      const uploadPromises = files.map(file => 
+      // Upload all files in background
+      Promise.all(files.map(file => 
         base44.integrations.Core.UploadFile({ file })
-      );
-      const results = await Promise.all(uploadPromises);
-      const fileUrls = results.map(r => r.file_url);
+      )).then(results => {
+        const urls = results.map(r => r.file_url);
+        setUploadedFiles(urls);
+      }).catch(err => console.error('Upload failed but continuing:', err));
       
-      setUploadedFiles(prev => [...prev, ...fileUrls]);
       setIsUploading(false);
       setIsExtracting(true);
 
-      // Extract maintenance history from all uploaded pages
-      const extractionPromises = fileUrls.map(file_url =>
+      // Extract maintenance history from all uploaded pages directly using the file object
+      const extractionPromises = files.map(file =>
         base44.integrations.Core.ExtractDataFromUploadedFile({
-          file_url,
+          file,
           json_schema: {
             type: "object",
             properties: {

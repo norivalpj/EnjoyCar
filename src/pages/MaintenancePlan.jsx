@@ -27,8 +27,8 @@ export default function MaintenancePlan() {
   const { data: vehicle, isLoading: loadingVehicle } = useQuery({
     queryKey: ['vehicle', vehicleId],
     queryFn: async () => {
-      const results = await base44.entities.Vehicle.filter({ id: vehicleId });
-      return results[0];
+      const result = await base44.entities.Vehicle.get(vehicleId);
+      return result || null;
     },
     enabled: !!vehicleId
   });
@@ -118,7 +118,7 @@ export default function MaintenancePlan() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
+    <div className="bg-gradient-to-br from-slate-50 via-white to-blue-50 flex-1 h-full">
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -236,7 +236,7 @@ export default function MaintenancePlan() {
           </Card>
         ) : (
           <Tabs defaultValue="pending" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="flex w-full">
               <TabsTrigger value="pending">
                 Pendentes ({pendingPlans.length})
               </TabsTrigger>

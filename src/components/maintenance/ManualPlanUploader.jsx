@@ -16,18 +16,18 @@ const ManualPlanUploader = ({ vehicleId, onPlanExtracted }) => {
 
     setIsUploading(true);
     try {
-      const uploadPromises = files.map(file => 
+      Promise.all(files.map(file => 
         base44.integrations.Core.UploadFile({ file })
-      );
-      const results = await Promise.all(uploadPromises);
-      const urls = results.map(r => r.file_url);
+      )).then(results => {
+        const urls = results.map(r => r.file_url);
+        setUploadedImages(prev => [...prev, ...urls]);
+      }).catch(err => console.error('Upload failed:', err));
       
-      setUploadedImages(prev => [...prev, ...urls]);
       setIsUploading(false);
       
       // Extract maintenance plan
       setIsExtracting(true);
-      await extractMaintenancePlan([...uploadedImages, ...urls]);
+      await extractMaintenancePlan(files);
     } catch (error) {
       console.error('Error uploading files:', error);
       setIsUploading(false);
@@ -35,10 +35,10 @@ const ManualPlanUploader = ({ vehicleId, onPlanExtracted }) => {
     }
   };
 
-  const extractMaintenancePlan = async (imageUrls) => {
+  const extractMaintenancePlan = async (files) => {
     try {
       const result = await base44.integrations.Core.ExtractDataFromUploadedFile({
-        file_url: imageUrls[0],
+        file: files[0],
         json_schema: {
           type: "object",
           properties: {
@@ -66,7 +66,7 @@ const ManualPlanUploader = ({ vehicleId, onPlanExtracted }) => {
         const plan = result.output.maintenance_schedule.map(item => ({
           ...item,
           vehicle_id: vehicleId,
-          manual_images: imageUrls,
+          manual_images: [],
           is_completed: false
         }));
         

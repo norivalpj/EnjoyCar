@@ -10,8 +10,10 @@ import {
   Car, Plus, Wrench, DollarSign, Calendar, ChevronRight, Bell, FileText, Phone, Star, MapPin
 } from "lucide-react";
 import { isAfter, addDays } from "date-fns";
+import { useTranslation } from 'react-i18next';
 
-import StatsCard from '../components/dashboard/StatsCard';
+import CarDashboardPanel from '../components/dashboard/CarDashboardPanel';
+import UpcomingTimeline from '../components/dashboard/UpcomingTimeline';
 import VehicleCard from '../components/vehicles/VehicleCard';
 import MaintenanceCard from '../components/maintenance/MaintenanceCard';
 import GuidedTour from '../components/onboarding/GuidedTour';
@@ -20,6 +22,7 @@ import NotificationService from '../components/notifications/NotificationService
 import { AnimatePresence } from 'framer-motion';
 
 export default function Home() {
+  const { t } = useTranslation();
   const [showTour, setShowTour] = useState(false);
   const { data: vehicles = [], isLoading: loadingVehicles } = useQuery({
     queryKey: ['vehicles'],
@@ -142,16 +145,16 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
+    <div className="bg-gradient-to-br from-slate-50 via-white to-blue-50 flex-1 h-full">
       <div className="max-w-6xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8" data-tour="header">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-slate-800">
-              Manutenção de Veículos
+              {t('home.title')}
             </h1>
             <p className="text-slate-500 mt-1">
-              Gerencie todas as manutenções dos seus carros
+              {t('app.description')}
             </p>
           </div>
           
@@ -161,98 +164,23 @@ export default function Home() {
                 <Bell className="w-5 h-5" />
               </Button>
             </Link>
-            <Link to={createPageUrl('NewMaintenance')}>
-              <Button className="bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200">
-                <Plus className="w-4 h-4 mr-2" />
-                Nova Manutenção
-              </Button>
-            </Link>
           </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <Link to={createPageUrl('NewMaintenance')} data-tour="add-maintenance">
-            <Card className="hover:shadow-lg transition-shadow cursor-pointer border-blue-200 bg-blue-50/50">
-              <CardContent className="p-6 text-center">
-                <div className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center mx-auto mb-3">
-                  <Plus className="w-6 h-6" />
-                </div>
-                <p className="font-medium text-slate-800">Nova Manutenção</p>
-              </CardContent>
-            </Card>
-          </Link>
+        {/* Car Dashboard Panel */}
+        {isLoading ? (
+          <Skeleton className="h-64 w-full rounded-3xl mb-8" />
+        ) : (
+          <CarDashboardPanel 
+            vehiclesCount={vehicles.length}
+            maintenancesCount={maintenances.length}
+            thisMonthCost={thisMonthCost}
+            totalCost={totalCost}
+          />
+        )}
 
-          <Link to={createPageUrl('Vehicles')} data-tour="add-vehicle">
-            <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-              <CardContent className="p-6 text-center">
-                <div className="w-12 h-12 rounded-full bg-slate-600 text-white flex items-center justify-center mx-auto mb-3">
-                  <Car className="w-6 h-6" />
-                </div>
-                <p className="font-medium text-slate-800">Meus Veículos</p>
-              </CardContent>
-            </Card>
-          </Link>
-
-          <Link to={createPageUrl('History')} data-tour="history">
-            <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-              <CardContent className="p-6 text-center">
-                <div className="w-12 h-12 rounded-full bg-slate-600 text-white flex items-center justify-center mx-auto mb-3">
-                  <Wrench className="w-6 h-6" />
-                </div>
-                <p className="font-medium text-slate-800">Histórico</p>
-              </CardContent>
-            </Card>
-          </Link>
-
-          <Link to={createPageUrl('Reports')} data-tour="reports">
-            <Card className="hover:shadow-lg transition-shadow cursor-pointer border-purple-200 bg-purple-50/50">
-              <CardContent className="p-6 text-center">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white flex items-center justify-center mx-auto mb-3">
-                  <FileText className="w-6 h-6" />
-                </div>
-                <p className="font-medium text-slate-800">Relatórios IA</p>
-              </CardContent>
-            </Card>
-          </Link>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          {isLoading ? (
-            Array(4).fill(0).map((_, i) => (
-              <Card key={i}><CardContent className="p-5"><Skeleton className="h-16 w-full" /></CardContent></Card>
-            ))
-          ) : (
-            <>
-              <StatsCard 
-                title="Veículos" 
-                value={vehicles.length}
-                icon={Car}
-                gradient="bg-gradient-to-br from-blue-500 to-blue-600"
-              />
-              <StatsCard 
-                title="Manutenções" 
-                value={maintenances.length}
-                icon={Wrench}
-                gradient="bg-gradient-to-br from-emerald-500 to-emerald-600"
-              />
-              <StatsCard 
-                title="Este Mês" 
-                value={`R$ ${thisMonthCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                subtitle={`${thisMonthMaintenances.length} serviços`}
-                icon={Calendar}
-                gradient="bg-gradient-to-br from-amber-500 to-orange-500"
-              />
-              <StatsCard 
-                title="Total Gasto" 
-                value={`R$ ${totalCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                icon={DollarSign}
-                gradient="bg-gradient-to-br from-violet-500 to-purple-600"
-              />
-            </>
-          )}
-        </div>
+        {/* Upcoming Timeline Graph */}
+        <UpcomingTimeline />
 
         {/* Maintenance Notifications */}
         <MaintenanceNotifications />
@@ -262,10 +190,10 @@ export default function Home() {
           <div className="lg:col-span-1">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-4">
-                <CardTitle className="text-lg font-semibold">Meus Veículos</CardTitle>
+                <CardTitle className="text-lg font-semibold">{t('home.my_vehicles')}</CardTitle>
                 <Link to={createPageUrl('Vehicles')}>
                   <Button variant="ghost" size="sm">
-                    Ver todos <ChevronRight className="w-4 h-4 ml-1" />
+                    {t('home.see_all')} <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
                 </Link>
               </CardHeader>
@@ -277,10 +205,10 @@ export default function Home() {
                 ) : vehicles.length === 0 ? (
                   <div className="text-center py-8">
                     <Car className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                    <p className="text-slate-500 text-sm">Nenhum veículo cadastrado</p>
+                    <p className="text-slate-500 text-sm">{t('home.no_vehicles')}</p>
                     <Link to={createPageUrl('Vehicles')}>
                       <Button variant="link" size="sm" className="mt-2">
-                        Adicionar veículo
+                        {t('home.add_vehicle')}
                       </Button>
                     </Link>
                   </div>
@@ -299,10 +227,10 @@ export default function Home() {
           <div className="lg:col-span-2">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-4">
-                <CardTitle className="text-lg font-semibold">Últimas Manutenções</CardTitle>
+                <CardTitle className="text-lg font-semibold">{t('home.recent_maintenances')}</CardTitle>
                 <Link to={createPageUrl('History')}>
                   <Button variant="ghost" size="sm">
-                    Ver histórico <ChevronRight className="w-4 h-4 ml-1" />
+                    {t('home.see_history')} <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
                 </Link>
               </CardHeader>
@@ -314,10 +242,10 @@ export default function Home() {
                 ) : maintenances.length === 0 ? (
                   <div className="text-center py-12">
                     <Wrench className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                    <p className="text-slate-500 text-sm">Nenhuma manutenção registrada</p>
+                    <p className="text-slate-500 text-sm">{t('home.no_maintenance')}</p>
                     <Link to={createPageUrl('NewMaintenance')}>
                       <Button variant="link" size="sm" className="mt-2">
-                        Adicionar manutenção
+                        {t('home.add_maintenance')}
                       </Button>
                     </Link>
                   </div>
@@ -343,11 +271,11 @@ export default function Home() {
             <CardHeader className="flex flex-row items-center justify-between pb-4">
               <CardTitle className="text-lg font-semibold flex items-center gap-2">
                 <Wrench className="w-5 h-5 text-slate-500" />
-                Oficinas
+                {t('home.workshops')}
               </CardTitle>
               <Link to={createPageUrl('Workshops')}>
                 <Button variant="ghost" size="sm">
-                  Ver todas <ChevronRight className="w-4 h-4 ml-1" />
+                  {t('home.see_all')} <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
               </Link>
             </CardHeader>

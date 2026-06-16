@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Wrench, Calendar, DollarSign } from "lucide-react";
+import { ArrowLeft, Wrench, Calendar, DollarSign, Download } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -89,22 +89,82 @@ export default function History() {
     return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
   }, [filteredMaintenances]);
 
+  const exportToCsv = () => {
+    if (filteredMaintenances.length === 0) return;
+
+    const headers = [
+      'Veículo',
+      'Data',
+      'Tipo (Manutenção)',
+      'Quilometragem (km)',
+      'Custo (R$)',
+      'Oficina',
+      'Descrição'
+    ];
+
+    const rows = filteredMaintenances.map(m => {
+      const vehicleName = getVehicleName(m.vehicle_id);
+      const mDate = m.date ? format(new Date(m.date), 'dd/MM/yyyy') : '';
+      const cost = m.cost !== undefined ? m.cost.toString().replace('.', ',') : '0,00';
+      
+      const escapeCsv = (str) => {
+        if (!str) return '""';
+        const stringified = String(str);
+        return `"${stringified.replace(/"/g, '""')}"`;
+      };
+
+      return [
+        escapeCsv(vehicleName),
+        escapeCsv(mDate),
+        escapeCsv(m.type || ''),
+        escapeCsv(m.mileage || ''),
+        escapeCsv(cost),
+        escapeCsv(m.workshop_name || ''),
+        escapeCsv(m.description || '')
+      ].join(',');
+    });
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `historico_manutencoes_${format(new Date(), 'yyyyMMdd_HHmm')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
+    <div className="bg-gradient-to-br from-slate-50 via-white to-blue-50 flex-1 h-full">
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          <Link to={createPageUrl('Home')}>
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800">Histórico</h1>
-            <p className="text-slate-500 text-sm mt-0.5">
-              Todas as manutenções realizadas
-            </p>
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <Link to={createPageUrl('Home')}>
+              <Button variant="ghost" size="icon" className="rounded-full">
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+            </Link>
+            <div>
+              <h1 className="text-2xl font-bold text-slate-800">Histórico</h1>
+              <p className="text-slate-500 text-sm mt-0.5">
+                Todas as manutenções realizadas
+              </p>
+            </div>
           </div>
+          
+          <Button 
+            variant="outline" 
+            className="flex items-center gap-2 border-slate-200"
+            onClick={exportToCsv}
+            disabled={filteredMaintenances.length === 0}
+          >
+            <Download className="w-4 h-4" />
+            Exportar CSV
+          </Button>
         </div>
 
         {/* Filters */}

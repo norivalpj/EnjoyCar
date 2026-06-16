@@ -42,16 +42,21 @@ const InvoiceUploader = ({ onDataExtracted, onFileUploaded }) => {
     }
 
     try {
-      // Upload file
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      onFileUploaded(file_url);
+      // Initiate upload in background
+      let fileUrl = null;
+      let uploadPromise = base44.integrations.Core.UploadFile({ file })
+        .then(res => {
+           fileUrl = res.file_url;
+           onFileUploaded(fileUrl);
+        })
+        .catch(err => console.error("Upload failed but continuing:", err));
       
       setIsUploading(false);
       setIsExtracting(true);
 
-      // Extract data from invoice
+      // Extract data from invoice using file payload directly
       const result = await base44.integrations.Core.ExtractDataFromUploadedFile({
-        file_url,
+        file,
         json_schema: {
           type: "object",
           properties: {

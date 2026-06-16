@@ -144,17 +144,18 @@ const VehicleForm = ({ initialData = {}, onSubmit, onCancel, isLoading }) => {
 
     setIsUploading(true);
     try {
-      // Upload file
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      handleChange('purchase_invoice_url', file_url);
-      setInvoicePreview(file_url);
+      // Initiate background upload
+      base44.integrations.Core.UploadFile({ file }).then(res => {
+         handleChange('purchase_invoice_url', res.file_url);
+         setInvoicePreview(res.file_url);
+      }).catch(err => console.error('Upload failed:', err));
       
       setIsUploading(false);
       setIsExtractingInvoice(true);
 
       // Extract data from invoice
       const result = await base44.integrations.Core.ExtractDataFromUploadedFile({
-        file_url,
+        file,
         json_schema: {
           type: "object",
           properties: {
@@ -305,7 +306,7 @@ const VehicleForm = ({ initialData = {}, onSubmit, onCancel, isLoading }) => {
       </Card>
 
       <Tabs defaultValue="basic" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="flex w-full">
           <TabsTrigger value="basic">Dados Básicos</TabsTrigger>
           <TabsTrigger value="purchase">Dados da Compra</TabsTrigger>
           <TabsTrigger value="history">Histórico Manual</TabsTrigger>

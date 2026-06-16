@@ -15,7 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { 
   ArrowLeft, Pencil, Trash2, Calendar, Gauge, 
   Palette, FileText, ShoppingCart, Building2, CreditCard, 
-  ExternalLink, ChevronRight, BookOpen
+  ExternalLink, ChevronRight, BookOpen, Droplets, Map, Download
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -33,8 +33,8 @@ export default function VehicleDetail() {
   const { data: vehicle, isLoading: loadingVehicle } = useQuery({
     queryKey: ['vehicle', vehicleId],
     queryFn: async () => {
-      const results = await base44.entities.Vehicle.filter({ id: vehicleId });
-      return results[0];
+      const result = await base44.entities.Vehicle.get(vehicleId);
+      return result || null;
     },
     enabled: !!vehicleId
   });
@@ -56,6 +56,55 @@ export default function VehicleDetail() {
     vehicle.current_mileage >= p.recommended_mileage
   ).length;
 
+  // Add CSV export function
+  const exportToCsv = () => {
+    if (maintenances.length === 0) return;
+
+    const headers = [
+      'Veículo',
+      'Data',
+      'Tipo (Manutenção)',
+      'Quilometragem (km)',
+      'Custo (R$)',
+      'Oficina',
+      'Descrição'
+    ];
+
+    const rows = maintenances.map(m => {
+      const vehicleName = `${vehicle.brand} ${vehicle.model}`;
+      const mDate = m.date ? format(new Date(m.date), 'dd/MM/yyyy') : '';
+      const cost = m.cost !== undefined ? m.cost.toString().replace('.', ',') : '0,00';
+      
+      const escapeCsv = (str) => {
+        if (!str) return '""';
+        const stringified = String(str);
+        return `"${stringified.replace(/"/g, '""')}"`;
+      };
+
+      return [
+        escapeCsv(vehicleName),
+        escapeCsv(mDate),
+        escapeCsv(m.type || ''),
+        escapeCsv(m.mileage || ''),
+        escapeCsv(cost),
+        escapeCsv(m.workshop_name || ''),
+        escapeCsv(m.description || '')
+      ].join(',');
+    });
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `historico_manutencoes_${vehicle.license_plate || 'veiculo'}_${format(new Date(), 'yyyyMMdd_HHmm')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const deleteMutation = useMutation({
     mutationFn: () => base44.entities.Vehicle.delete(vehicleId),
     onSuccess: () => {
@@ -65,6 +114,12 @@ export default function VehicleDetail() {
   });
 
   const totalSpent = maintenances.reduce((sum, m) => sum + (m.cost || 0), 0);
+
+  const nextOilChangePlan = maintenancePlans
+    .filter(p => !p.is_completed && p.maintenance_type?.toLowerCase().includes('óleo'))
+    .sort((a, b) => (a.recommended_mileage || 0) - (b.recommended_mileage || 0))[0];
+    
+  const totalDistance = (vehicle?.current_mileage || 0) - (vehicle?.purchase_mileage || 0);
 
   if (loadingVehicle) {
     return (
@@ -92,7 +147,7 @@ export default function VehicleDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
+    <div className="bg-gradient-to-br from-slate-50 via-white to-blue-50 flex-1 h-full">
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -153,6 +208,63 @@ export default function VehicleDetail() {
             )}
           </div>
         )}
+
+        {/* Visão Geral (Overview) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <Card className="border-l-4 border-slate-700 bg-slate-50">
+            <CardContent className="p-6 flex items-start gap-4">
+              <div className="p-3 bg-slate-200 text-slate-800 rounded-full">
+                <Map className="w-8 h-8" />
+              </div>
+              <div>
+                <p className="text-slate-500 font-medium">Distância Total Percorrida</p>
+                <p className="text-3xl font-bold text-slate-800 tracking-tight mt-1">
+                  {totalDistance.toLocaleString('pt-BR')} <span className="text-lg font-medium text-slate-500">km</span>
+                </p>
+                {vehicle?.purchase_mileage > 0 && (
+                  <p className="text-sm text-slate-500 mt-2">
+                    Desde a compra ({vehicle.purchase_mileage.toLocaleString('pt-BR')} km)
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-blue-600 bg-blue-50">
+            <CardContent className="p-6 flex items-start gap-4">
+              <div className="p-3 bg-blue-200 text-blue-800 rounded-full">
+                <Droplets className="w-8 h-8" />
+              </div>
+              <div className="flex-1">
+                <p className="text-blue-600 font-medium font-semibold">Próxima Troca de Óleo</p>
+                {nextOilChangePlan ? (
+                  <>
+                    <p className="text-3xl font-bold text-slate-800 tracking-tight mt-1">
+                      {(nextOilChangePlan.recommended_mileage || 0).toLocaleString('pt-BR')} <span className="text-lg font-medium text-slate-500">km</span>
+                    </p>
+                    <div className="mt-2 w-full bg-blue-200 h-2 rounded-full overflow-hidden">
+                      <div 
+                        className="bg-blue-600 h-full rounded-full transition-all" 
+                        style={{ 
+                          width: `${Math.min(100, Math.max(0, ((vehicle?.current_mileage || 0) / (nextOilChangePlan.recommended_mileage || 1)) * 100))}%` 
+                        }} 
+                      />
+                    </div>
+                    {vehicle?.current_mileage && nextOilChangePlan.recommended_mileage && (
+                      <p className="text-sm text-slate-600 mt-2">
+                        Faltam {(nextOilChangePlan.recommended_mileage - vehicle.current_mileage).toLocaleString('pt-BR')} km
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-lg font-medium text-slate-700 mt-2">
+                    Não configurada
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           {/* Basic Info */}
@@ -388,11 +500,23 @@ export default function VehicleDetail() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-4">
             <CardTitle className="text-lg">Histórico de Manutenções</CardTitle>
-            <Link to={createPageUrl('NewMaintenance')}>
-              <Button variant="outline" size="sm">
-                Nova Manutenção <ChevronRight className="w-4 h-4 ml-1" />
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={exportToCsv}
+                disabled={maintenances.length === 0}
+                title="Exportar CSV"
+              >
+                <Download className="w-4 h-4 md:mr-1" />
+                <span className="hidden md:inline">Exportar CSV</span>
               </Button>
-            </Link>
+              <Link to={createPageUrl('NewMaintenance')}>
+                <Button variant="outline" size="sm">
+                  Nova Manutenção <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              </Link>
+            </div>
           </CardHeader>
           <CardContent className="space-y-3">
             {loadingMaintenances ? (
