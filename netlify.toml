@@ -1,3 +1,12 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[[redirects]]
+  from = "/api/extract-data"
+  to = "/.netlify/functions/extract-data"
+  status = 200
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
