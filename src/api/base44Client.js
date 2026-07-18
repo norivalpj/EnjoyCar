@@ -151,14 +151,17 @@ const createFirebaseEntity = (entityName, collectionName) => {
     create: async (data) => {
       try {
         if (!auth.currentUser) throw new Error("Unauthorized");
+        const batch = writeBatch(db);
+        const newDocRef = doc(collection(db, collectionName));
         const payload = sanitizePayload({ 
           ...data, 
           userId: auth.currentUser.uid, 
           // Use client timestamp to avoid waiting for server sync on offline or slow connections
           createdAt: new Date().toISOString()
         });
-        const docRef = await addDoc(collection(db, collectionName), payload);
-        const result = { id: docRef.id, ...payload };
+        batch.set(newDocRef, payload);
+        await batch.commit();
+        const result = { id: newDocRef.id, ...payload };
         return result;
       } catch (error) {
         handleFirestoreError(error, 'create', collectionName);
@@ -189,9 +192,11 @@ const createFirebaseEntity = (entityName, collectionName) => {
     update: async (id, data) => {
       try {
         if (!auth.currentUser) throw new Error("Unauthorized");
+        const batch = writeBatch(db);
         const docRef = doc(db, collectionName, id);
         const updatePayload = sanitizePayload({ ...data, updatedAt: new Date().toISOString() });
-        await updateDoc(docRef, updatePayload);
+        batch.update(docRef, updatePayload);
+        await batch.commit();
         const result = { id, ...data, updatedAt: updatePayload.updatedAt };
         return result;
       } catch (error) {
@@ -201,8 +206,10 @@ const createFirebaseEntity = (entityName, collectionName) => {
     delete: async (id) => {
       try {
         if (!auth.currentUser) throw new Error("Unauthorized");
+        const batch = writeBatch(db);
         const docRef = doc(db, collectionName, id);
-        await deleteDoc(docRef);
+        batch.delete(docRef);
+        await batch.commit();
         return { success: true };
       } catch (error) {
         handleFirestoreError(error, 'delete', `${collectionName}/${id}`);
@@ -223,12 +230,20 @@ vehicleEntity.delete = async (id) => {
     batch.delete(vehicleRef);
 
     // 2. Delete maintenances
-    const maintQ = query(collection(db, 'maintenances'), where('vehicle_id', '==', id));
+    const maintQ = query(
+      collection(db, 'maintenances'), 
+      where('userId', '==', auth.currentUser.uid),
+      where('vehicle_id', '==', id)
+    );
     const maintSnap = await getDocs(maintQ);
     maintSnap.docs.forEach(d => batch.delete(d.ref));
 
     // 3. Delete maintenancePlans
-    const planQ = query(collection(db, 'maintenancePlans'), where('vehicle_id', '==', id));
+    const planQ = query(
+      collection(db, 'maintenancePlans'), 
+      where('userId', '==', auth.currentUser.uid),
+      where('vehicle_id', '==', id)
+    );
     const planSnap = await getDocs(planQ);
     planSnap.docs.forEach(d => batch.delete(d.ref));
 
