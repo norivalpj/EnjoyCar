@@ -17,7 +17,8 @@ import {
   query, 
   where, 
   orderBy,
-  serverTimestamp
+  serverTimestamp,
+  writeBatch
 } from 'firebase/firestore';
 import defaultFirebaseConfig from '../../firebase-applet-config.json';
 
@@ -166,19 +167,23 @@ const createFirebaseEntity = (entityName, collectionName) => {
     bulkCreate: async (dataArray) => {
       try {
         if (!auth.currentUser) throw new Error("Unauthorized");
-        const promises = dataArray.map(async (data) => {
+        const batch = writeBatch(db);
+        const results = [];
+        const collRef = collection(db, collectionName);
+        for (const data of dataArray) {
           const payload = sanitizePayload({ 
             ...data, 
             userId: auth.currentUser.uid, 
             createdAt: new Date().toISOString()
           });
-          const docRef = await addDoc(collection(db, collectionName), payload);
-          return { id: docRef.id, ...payload };
-        });
-        const results = await Promise.all(promises);
+          const docRef = doc(collRef);
+          batch.set(docRef, payload);
+          results.push({ id: docRef.id, ...payload });
+        }
+        await batch.commit();
         return results;
       } catch (error) {
-        handleFirestoreError(error, 'create', collectionName);
+        handleFirestoreError(error, 'bulkCreate', collectionName);
       }
     },
     update: async (id, data) => {
@@ -206,9 +211,38 @@ const createFirebaseEntity = (entityName, collectionName) => {
   };
 };
 
+const vehicleEntity = createFirebaseEntity('Vehicle', 'vehicles');
+vehicleEntity.delete = async (id) => {
+  try {
+    if (!auth.currentUser) throw new Error("Unauthorized");
+    
+    const batch = writeBatch(db);
+    
+    // 1. Delete vehicle
+    const vehicleRef = doc(db, 'vehicles', id);
+    batch.delete(vehicleRef);
+
+    // 2. Delete maintenances
+    const maintQ = query(collection(db, 'maintenances'), where('vehicle_id', '==', id));
+    const maintSnap = await getDocs(maintQ);
+    maintSnap.docs.forEach(d => batch.delete(d.ref));
+
+    // 3. Delete maintenancePlans
+    const planQ = query(collection(db, 'maintenancePlans'), where('vehicle_id', '==', id));
+    const planSnap = await getDocs(planQ);
+    planSnap.docs.forEach(d => batch.delete(d.ref));
+
+    await batch.commit();
+
+    return { success: true };
+  } catch (error) {
+    handleFirestoreError(error, 'delete', `vehicles/${id} (cascading)`);
+  }
+};
+
 export const base44 = {
   entities: {
-    Vehicle: createFirebaseEntity('Vehicle', 'vehicles'),
+    Vehicle: vehicleEntity,
     Maintenance: createFirebaseEntity('Maintenance', 'maintenances'),
     MaintenancePlan: createFirebaseEntity('MaintenancePlan', 'maintenancePlans'),
     Workshop: createFirebaseEntity('Workshop', 'workshops'),

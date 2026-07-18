@@ -112,25 +112,23 @@ Retorne um array com TODAS as manutenções encontradas, mesmo que sejam muitas.
 
       // Save all maintenance plans
       if (response.maintenance_items && response.maintenance_items.length > 0) {
-        const planPromises = response.maintenance_items.map(item => 
-          base44.entities.MaintenancePlan.create({
-            vehicle_id: vehicleId,
-            maintenance_type: item.maintenance_type,
-            description: item.description,
-            recommended_mileage: item.recommended_mileage,
-            recommended_interval_km: item.recommended_interval_km,
-            recommended_interval_months: item.recommended_interval_months,
-            priority: item.priority || 'medium',
-            manual_images: fileUrls,
-            technical_specs: item.technical_specs,
-            safety_procedures: item.safety_procedures,
-            manual_page_reference: item.manual_page_reference,
-            extracted_from_pdf: files[0].type === 'application/pdf',
-            is_completed: false
-          })
-        );
+        const plansToCreate = response.maintenance_items.map(item => ({
+          vehicle_id: vehicleId,
+          maintenance_type: item.maintenance_type,
+          description: item.description,
+          recommended_mileage: item.recommended_mileage,
+          recommended_interval_km: item.recommended_interval_km,
+          recommended_interval_months: item.recommended_interval_months,
+          priority: item.priority || 'medium',
+          manual_images: fileUrls,
+          technical_specs: item.technical_specs,
+          safety_procedures: item.safety_procedures,
+          manual_page_reference: item.manual_page_reference,
+          extracted_from_pdf: files[0].type === 'application/pdf',
+          is_completed: false
+        }));
 
-        await Promise.all(planPromises);
+        await base44.entities.MaintenancePlan.bulkCreate(plansToCreate);
         setProgress(100);
         setResult({
           count: response.maintenance_items.length,
