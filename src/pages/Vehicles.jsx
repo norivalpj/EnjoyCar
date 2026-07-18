@@ -13,6 +13,7 @@ import {
   AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger 
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from 'sonner';
 import { ArrowLeft, Plus, Car, Pencil, Trash2 } from "lucide-react";
 
 import VehicleCard from '../components/vehicles/VehicleCard';
@@ -40,6 +41,11 @@ export default function Vehicles() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vehicles'] });
       setIsFormOpen(false);
+      toast.success('Veículo salvo com sucesso!');
+    },
+    onError: (error) => {
+      console.error(error);
+      toast.error('Erro ao salvar veículo: ' + error.message);
     }
   });
 
@@ -49,6 +55,11 @@ export default function Vehicles() {
       queryClient.invalidateQueries({ queryKey: ['vehicles'] });
       setEditingVehicle(null);
       setIsFormOpen(false);
+      toast.success('Veículo atualizado com sucesso!');
+    },
+    onError: (error) => {
+      console.error(error);
+      toast.error('Erro ao atualizar veículo: ' + error.message);
     }
   });
 
@@ -56,6 +67,11 @@ export default function Vehicles() {
     mutationFn: (id) => base44.entities.Vehicle.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      toast.success('Veículo excluído!');
+    },
+    onError: (error) => {
+      console.error(error);
+      toast.error('Erro ao excluir veículo: ' + error.message);
     }
   });
 

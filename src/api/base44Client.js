@@ -93,6 +93,17 @@ const setLocalCache = (key, data) => {
   } catch(e) {}
 };
 
+const sanitizePayload = (obj) => {
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(sanitizePayload);
+  return Object.entries(obj).reduce((acc, [key, val]) => {
+    if (val !== undefined) {
+      acc[key] = typeof val === 'object' ? sanitizePayload(val) : val;
+    }
+    return acc;
+  }, {});
+};
+
 const createFirebaseEntity = (entityName, collectionName) => {
   return {
     list: async (sortStr) => {
@@ -181,12 +192,12 @@ const createFirebaseEntity = (entityName, collectionName) => {
     create: async (data) => {
       try {
         if (!auth.currentUser) throw new Error("Unauthorized");
-        const payload = { 
+        const payload = sanitizePayload({ 
           ...data, 
           userId: auth.currentUser.uid, 
           // Use client timestamp to avoid waiting for server sync on offline or slow connections
           createdAt: new Date().toISOString()
-        };
+        });
         const docRef = await addDoc(collection(db, collectionName), payload);
         const result = { id: docRef.id, ...payload };
         setLocalCache(`${collectionName}_get_${docRef.id}`, result);
@@ -200,11 +211,11 @@ const createFirebaseEntity = (entityName, collectionName) => {
         if (!auth.currentUser) throw new Error("Unauthorized");
         const results = [];
         for (const data of dataArray) {
-          const payload = { 
+          const payload = sanitizePayload({ 
             ...data, 
             userId: auth.currentUser.uid, 
             createdAt: new Date().toISOString()
-          };
+          });
           const docRef = await addDoc(collection(db, collectionName), payload);
           results.push({ id: docRef.id, ...payload });
         }
@@ -217,7 +228,7 @@ const createFirebaseEntity = (entityName, collectionName) => {
       try {
         if (!auth.currentUser) throw new Error("Unauthorized");
         const docRef = doc(db, collectionName, id);
-        const updatePayload = { ...data, updatedAt: new Date().toISOString() };
+        const updatePayload = sanitizePayload({ ...data, updatedAt: new Date().toISOString() });
         await updateDoc(docRef, updatePayload);
         const result = { id, ...data, updatedAt: updatePayload.updatedAt };
         setLocalCache(`${collectionName}_get_${id}`, result);
