@@ -1,7 +1,8 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Upload, Camera, FileImage, Loader2, CheckCircle, X } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Upload, Camera, FileImage, Loader2, CheckCircle, X, AlertCircle } from "lucide-react";
 import { base44 } from '@/api/base44Client';
 
 const InvoiceUploader = ({ onDataExtracted, onFileUploaded }) => {
@@ -10,6 +11,29 @@ const InvoiceUploader = ({ onDataExtracted, onFileUploaded }) => {
   const [isExtracting, setIsExtracting] = useState(false);
   const [uploadedFile, setUploadedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [progress, setProgress] = useState(0);
+
+  // Simulate progress
+  useEffect(() => {
+    let interval;
+    if (isUploading) {
+      setProgress(5);
+      interval = setInterval(() => {
+        setProgress(prev => (prev < 30 ? prev + 2 : prev));
+      }, 300);
+    } else if (isExtracting) {
+      setProgress(30);
+      interval = setInterval(() => {
+        setProgress(prev => (prev < 90 ? prev + 1 : prev));
+      }, 500);
+    } else if (!isUploading && !isExtracting && uploadedFile && !errorMsg) {
+      setProgress(100);
+    } else if (errorMsg) {
+      setProgress(0);
+    }
+    return () => clearInterval(interval);
+  }, [isUploading, isExtracting, uploadedFile, errorMsg]);
 
   const handleDragOver = useCallback((e) => {
     e.preventDefault();
@@ -24,10 +48,19 @@ const InvoiceUploader = ({ onDataExtracted, onFileUploaded }) => {
   const processFile = async (file) => {
     if (!file) return;
     
+    setErrorMsg("");
+    
     // Validate file type
     const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
     if (!validTypes.includes(file.type)) {
-      alert('Por favor, envie uma imagem (JPG, PNG) ou PDF');
+      setErrorMsg('Por favor, envie uma imagem (JPG, PNG) ou PDF válido.');
+      return;
+    }
+
+    // Validate file size (5MB = 5 * 1024 * 1024 bytes)
+    const MAX_SIZE = 5 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      setErrorMsg(`O arquivo é muito grande (${(file.size / (1024 * 1024)).toFixed(1)}MB). O tamanho máximo permitido é 5MB.`);
       return;
     }
 
@@ -39,24 +72,25 @@ const InvoiceUploader = ({ onDataExtracted, onFileUploaded }) => {
       const reader = new FileReader();
       reader.onload = (e) => setPreviewUrl(e.target.result);
       reader.readAsDataURL(file);
+    } else {
+      setPreviewUrl(null); // Clear previous preview if it's a PDF
     }
 
     try {
-      // Initiate upload in background
+      // Initiate upload and wait for it
       let fileUrl = null;
-      let uploadPromise = base44.integrations.Core.UploadFile({ file })
-        .then(res => {
-           fileUrl = res.file_url;
-           onFileUploaded(fileUrl);
-        })
-        .catch(err => console.error("Upload failed but continuing:", err));
+      try {
+        const res = await base44.integrations.Core.UploadFile({ file });
+        fileUrl = res.file_url;
+        onFileUploaded(fileUrl);
+      } catch (err) {
+        console.error("Upload failed but continuing:", err);
+      }
       
       setIsUploading(false);
       setIsExtracting(true);
 
-      // Extract data from invoice using file payload directly
-      const result = await base44.integrations.Core.ExtractDataFromUploadedFile({
-        file,
+      const extractPayload = {
         json_schema: {
           type: "object",
           properties: {
@@ -91,19 +125,30 @@ const InvoiceUploader = ({ onDataExtracted, onFileUploaded }) => {
             }
           }
         }
-      });
+      };
+
+      if (fileUrl) {
+        extractPayload.file_url = fileUrl;
+      } else {
+        extractPayload.file = file;
+      }
+
+      // Extract data from invoice
+      const result = await base44.integrations.Core.ExtractDataFromUploadedFile(extractPayload);
 
       setIsExtracting(false);
 
       if (result.status === 'success' && result.output) {
         onDataExtracted(result.output);
       } else {
-        alert("Não foi possível processar a nota/recibo: " + (result.error || "Tente novamente mais tarde."));
+        console.error("Extraction error result:", result);
+        const errorMsg = result.error || result.errorMessage || JSON.stringify(result);
+        setErrorMsg("Não foi possível processar a nota: " + errorMsg);
         onDataExtracted(null);
       }
     } catch (error) {
       console.error('Error processing file:', error);
-      alert("Houve um erro na comunicação com o servidor ao processar o arquivo.");
+      setErrorMsg("Houve um erro na comunicação com o servidor ao processar o arquivo.");
       setIsUploading(false);
       setIsExtracting(false);
     }
@@ -124,13 +169,15 @@ const InvoiceUploader = ({ onDataExtracted, onFileUploaded }) => {
   const clearUpload = () => {
     setUploadedFile(null);
     setPreviewUrl(null);
+    setErrorMsg("");
+    setProgress(0);
     onFileUploaded(null);
     onDataExtracted(null);
   };
 
   if (uploadedFile) {
     return (
-      <Card className="border-2 border-dashed border-green-300 bg-green-50/50">
+      <Card className={`border-2 border-dashed ${errorMsg ? 'border-red-300 bg-red-50/50' : 'border-green-300 bg-green-50/50'}`}>
         <CardContent className="p-6">
           <div className="flex items-center gap-4">
             {previewUrl ? (
@@ -141,28 +188,37 @@ const InvoiceUploader = ({ onDataExtracted, onFileUploaded }) => {
               </div>
             )}
             
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-2">
                 {isUploading && (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                    <span className="text-sm text-slate-600">Enviando arquivo...</span>
+                    <span className="text-sm text-slate-600 font-medium">Enviando arquivo...</span>
                   </>
                 )}
                 {isExtracting && (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                    <span className="text-sm text-slate-600">Extraindo dados da nota...</span>
+                    <span className="text-sm text-slate-600 font-medium">Extraindo dados (pode levar alguns segundos)...</span>
                   </>
                 )}
-                {!isUploading && !isExtracting && (
+                {!isUploading && !isExtracting && !errorMsg && (
                   <>
                     <CheckCircle className="w-4 h-4 text-green-500" />
-                    <span className="text-sm text-green-600 font-medium">Arquivo processado</span>
+                    <span className="text-sm text-green-600 font-medium">Arquivo processado com sucesso</span>
+                  </>
+                )}
+                {!isUploading && !isExtracting && errorMsg && (
+                  <>
+                    <AlertCircle className="w-4 h-4 text-red-500 min-w-4" />
+                    <span className="text-sm text-red-600 font-medium truncate">{errorMsg}</span>
                   </>
                 )}
               </div>
-              <p className="text-xs text-slate-400 mt-1 truncate">{uploadedFile.name}</p>
+              
+              <Progress value={progress} className={`h-2 ${errorMsg ? 'bg-red-200' : ''}`} />
+              
+              <p className="text-xs text-slate-400 mt-2 truncate font-mono">{uploadedFile.name}</p>
             </div>
 
             <Button 
@@ -200,7 +256,7 @@ const InvoiceUploader = ({ onDataExtracted, onFileUploaded }) => {
             Envie a nota fiscal ou recibo
           </h3>
           <p className="text-sm text-slate-400 mb-4">
-            Arraste uma imagem ou clique para selecionar
+            Arraste uma imagem, PDF ou clique para selecionar
           </p>
 
           <div className="flex gap-3">
@@ -214,7 +270,7 @@ const InvoiceUploader = ({ onDataExtracted, onFileUploaded }) => {
               <Button variant="outline" className="cursor-pointer" asChild>
                 <span>
                   <FileImage className="w-4 h-4 mr-2" />
-                  Galeria
+                  Selecionar
                 </span>
               </Button>
             </label>
@@ -236,9 +292,16 @@ const InvoiceUploader = ({ onDataExtracted, onFileUploaded }) => {
             </label>
           </div>
 
-          <p className="text-xs text-slate-300 mt-4">
-            JPG, PNG ou PDF • Máximo 10MB
+          <p className="text-xs text-slate-400 mt-4">
+            JPG, PNG ou PDF • Máximo 5MB
           </p>
+          
+          {errorMsg && (
+            <div className="mt-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg flex items-start text-left max-w-sm">
+              <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

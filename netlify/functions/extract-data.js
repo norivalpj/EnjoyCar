@@ -7,10 +7,10 @@ export async function handler(event, context) {
 
   try {
     const body = JSON.parse(event.body || "{}");
-    let { file_url, file_base64, mime_type, json_schema } = body;
+    let { file_url, file_base64, mime_type, json_schema, text_content } = body;
     
-    if ((!file_url && !file_base64) || !json_schema) {
-      return { statusCode: 400, body: JSON.stringify({ error: "Missing file_url / file_base64 or json_schema" }) };
+    if ((!file_url && !file_base64 && !text_content) || !json_schema) {
+      return { statusCode: 400, body: JSON.stringify({ error: "Missing file_url / file_base64 / text_content or json_schema" }) };
     }
 
     // Fix schema types
@@ -54,13 +54,23 @@ export async function handler(event, context) {
     }
 
     if (finalBase64 && finalBase64.startsWith('data:')) {
-      const matches = finalBase64.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
-      if (matches) {
-         targetMimeType = matches[1];
-         finalBase64 = matches[2];
-      } else {
-         finalBase64 = finalBase64.split(',')[1] || finalBase64;
+      const commaIndex = finalBase64.indexOf(',');
+      if (commaIndex !== -1) {
+        const header = finalBase64.substring(0, commaIndex);
+        const match = header.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64$/);
+        if (match) {
+          targetMimeType = match[1];
+        }
+        finalBase64 = finalBase64.substring(commaIndex + 1);
       }
+    }
+
+    let parts = [];
+    if (text_content) {
+      parts.push({ text: `Extract the data requested in the JSON schema from the following document text:\n\n${text_content}` });
+    } else {
+      parts.push({ inlineData: { data: finalBase64, mimeType: targetMimeType } });
+      parts.push({ text: "Extract the data requested in the JSON schema from this file. If it's a receipt/invoice, look for vehicle information, store info, etc." });
     }
 
     let response;
@@ -72,10 +82,7 @@ export async function handler(event, context) {
           model: 'gemini-2.5-flash',
           contents: [{
             role: 'user',
-            parts: [
-              { inlineData: { data: finalBase64, mimeType: targetMimeType } },
-              { text: "Extract the data requested in the JSON schema from this file. If it's a receipt/invoice, look for vehicle information, store info, etc." }
-            ]
+            parts: parts
           }],
           config: {
             responseMimeType: "application/json",
@@ -107,6 +114,7 @@ export async function handler(event, context) {
       headers: { "Content-Type": "application/json" }
     };
   } catch (error) {
-    return { statusCode: 500, body: JSON.stringify({ status: 'error', error: error.message }) };
+    const errorMsg = (error && error.message) ? error.message : String(error);
+    return { statusCode: 500, body: JSON.stringify({ status: 'error', error: errorMsg || 'Unknown error' }) };
   }
 }

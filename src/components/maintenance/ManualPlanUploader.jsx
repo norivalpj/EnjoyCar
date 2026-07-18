@@ -16,18 +16,23 @@ const ManualPlanUploader = ({ vehicleId, onPlanExtracted }) => {
 
     setIsUploading(true);
     try {
-      Promise.all(files.map(file => 
-        base44.integrations.Core.UploadFile({ file })
-      )).then(results => {
+      let fileUrl = null;
+      try {
+        const results = await Promise.all(files.map(file => 
+          base44.integrations.Core.UploadFile({ file })
+        ));
         const urls = results.map(r => r.file_url);
         setUploadedImages(prev => [...prev, ...urls]);
-      }).catch(err => console.error('Upload failed:', err));
+        if (urls.length > 0) fileUrl = urls[0];
+      } catch (err) {
+        console.error('Upload failed:', err);
+      }
       
       setIsUploading(false);
       
       // Extract maintenance plan
       setIsExtracting(true);
-      await extractMaintenancePlan(files);
+      await extractMaintenancePlan(files[0], fileUrl);
     } catch (error) {
       console.error('Error uploading files:', error);
       setIsUploading(false);
@@ -35,10 +40,9 @@ const ManualPlanUploader = ({ vehicleId, onPlanExtracted }) => {
     }
   };
 
-  const extractMaintenancePlan = async (files) => {
+  const extractMaintenancePlan = async (file, fileUrl) => {
     try {
-      const result = await base44.integrations.Core.ExtractDataFromUploadedFile({
-        file: files[0],
+      const extractPayload = {
         json_schema: {
           type: "object",
           properties: {
@@ -58,7 +62,15 @@ const ManualPlanUploader = ({ vehicleId, onPlanExtracted }) => {
             }
           }
         }
-      });
+      };
+
+      if (fileUrl) {
+        extractPayload.file_url = fileUrl;
+      } else {
+        extractPayload.file = file;
+      }
+
+      const result = await base44.integrations.Core.ExtractDataFromUploadedFile(extractPayload);
 
       setIsExtracting(false);
 

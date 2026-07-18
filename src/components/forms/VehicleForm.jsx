@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Save, Loader2, Upload, FileText, Sparkles } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Save, Loader2, Upload, FileText, Sparkles, AlertCircle } from "lucide-react";
 import { base44 } from '@/api/base44Client';
 import PhotoGallery from '../shared/PhotoGallery';
 import ManualHistoryUploader from './ManualHistoryUploader';
@@ -33,7 +34,30 @@ const VehicleForm = ({ initialData = {}, onSubmit, onCancel, isLoading }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [isExtractingInvoice, setIsExtractingInvoice] = useState(false);
   const [invoicePreview, setInvoicePreview] = useState(initialData.purchase_invoice_url || null);
+  const [invoiceError, setInvoiceError] = useState("");
+  const [invoiceProgress, setInvoiceProgress] = useState(0);
   const [extractedHistory, setExtractedHistory] = useState([]);
+
+  // Simulate progress
+  useEffect(() => {
+    let interval;
+    if (isUploading && !isExtractingInvoice) {
+      setInvoiceProgress(5);
+      interval = setInterval(() => {
+        setInvoiceProgress(prev => (prev < 30 ? prev + 2 : prev));
+      }, 300);
+    } else if (isExtractingInvoice) {
+      setInvoiceProgress(30);
+      interval = setInterval(() => {
+        setInvoiceProgress(prev => (prev < 90 ? prev + 1 : prev));
+      }, 500);
+    } else if (!isUploading && !isExtractingInvoice && formData.purchase_invoice_url && !invoiceError) {
+      setInvoiceProgress(100);
+    } else if (invoiceError) {
+      setInvoiceProgress(0);
+    }
+    return () => clearInterval(interval);
+  }, [isUploading, isExtractingInvoice, formData.purchase_invoice_url, invoiceError]);
   const [brandSearch, setBrandSearch] = useState('');
   const [modelSearch, setModelSearch] = useState('');
   const [loadingBrands, setLoadingBrands] = useState(false);
@@ -142,20 +166,44 @@ const VehicleForm = ({ initialData = {}, onSubmit, onCancel, isLoading }) => {
     const file = e.target.files[0];
     if (!file) return;
 
+    setInvoiceError("");
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
+    if (!validTypes.includes(file.type)) {
+      setInvoiceError('Por favor, envie uma imagem (JPG, PNG) ou PDF válido.');
+      return;
+    }
+
+    // Validate file size (5MB = 5 * 1024 * 1024 bytes)
+    const MAX_SIZE = 5 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      setInvoiceError(`O arquivo é muito grande (${(file.size / (1024 * 1024)).toFixed(1)}MB). O tamanho máximo permitido é 5MB.`);
+      return;
+    }
+
     setIsUploading(true);
     try {
-      // Initiate background upload
-      base44.integrations.Core.UploadFile({ file }).then(res => {
-         handleChange('purchase_invoice_url', res.file_url);
-         setInvoicePreview(res.file_url);
-      }).catch(err => console.error('Upload failed:', err));
+      let file_url = null;
+      try {
+        const res = await base44.integrations.Core.UploadFile({ file });
+        file_url = res.file_url;
+        handleChange('purchase_invoice_url', file_url);
+        // Only set preview if it's an image
+        if (file.type.startsWith('image/')) {
+           setInvoicePreview(file_url);
+        } else {
+           setInvoicePreview('pdf_icon'); // Placeholder for PDF
+        }
+      } catch (err) {
+        console.error('Upload failed:', err);
+      }
       
       setIsUploading(false);
       setIsExtractingInvoice(true);
 
       // Extract data from invoice
-      const result = await base44.integrations.Core.ExtractDataFromUploadedFile({
-        file,
+      const extractPayload = {
         json_schema: {
           type: "object",
           properties: {
@@ -171,7 +219,15 @@ const VehicleForm = ({ initialData = {}, onSubmit, onCancel, isLoading }) => {
             mileage: { type: "number", description: "Quilometragem do veículo no momento da compra" }
           }
         }
-      });
+      };
+      
+      if (file_url) {
+        extractPayload.file_url = file_url;
+      } else {
+        extractPayload.file = file;
+      }
+
+      const result = await base44.integrations.Core.ExtractDataFromUploadedFile(extractPayload);
 
       setIsExtractingInvoice(false);
 
@@ -196,11 +252,13 @@ const VehicleForm = ({ initialData = {}, onSubmit, onCancel, isLoading }) => {
         if (extracted.vehicle_color && !formData.color) handleChange('color', extracted.vehicle_color);
         if (extracted.license_plate && !formData.license_plate) handleChange('license_plate', extracted.license_plate.toUpperCase());
       } else {
-        alert("Não foi possível processar a nota fiscal: " + (result.error || "Tente novamente mais tarde."));
+        console.error("Extraction error result:", result);
+        const errorMsg = result.error || result.errorMessage || JSON.stringify(result);
+        setInvoiceError("Não foi possível processar a nota fiscal: " + errorMsg);
       }
     } catch (error) {
       console.error('Error processing invoice:', error);
-      alert("Houve um erro na comunicação com o servidor ao processar a nota fiscal.");
+      setInvoiceError("Houve um erro na comunicação com o servidor ao processar a nota fiscal.");
       setIsUploading(false);
       setIsExtractingInvoice(false);
     }
@@ -237,35 +295,54 @@ const VehicleForm = ({ initialData = {}, onSubmit, onCancel, isLoading }) => {
           </p>
         </CardHeader>
         <CardContent>
-          <div className="border-2 border-dashed border-blue-300 rounded-xl p-6 text-center bg-white">
+          <div className={`border-2 border-dashed ${invoiceError ? 'border-red-300 bg-red-50/50' : 'border-blue-300 bg-white'} rounded-xl p-6 text-center transition-colors`}>
             {invoicePreview ? (
-              <div className="space-y-4">
+              <div className="space-y-4 max-w-sm mx-auto">
                 <img 
                   src={invoicePreview} 
                   alt="Nota fiscal"
                   className="max-h-48 mx-auto rounded-lg border"
                 />
-                {isExtractingInvoice && (
-                  <div className="flex items-center justify-center gap-2 text-blue-600">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span className="text-sm font-medium">Extraindo dados da nota fiscal...</span>
+                
+                {(isUploading || isExtractingInvoice) ? (
+                  <div className="space-y-2 text-left">
+                     <div className="flex items-center gap-2 text-blue-600 mb-1">
+                       <Loader2 className="w-4 h-4 animate-spin" />
+                       <span className="text-sm font-medium">
+                         {isUploading ? 'Enviando arquivo...' : 'Extraindo dados (pode levar alguns segundos)...'}
+                       </span>
+                     </div>
+                     <Progress value={invoiceProgress} className="h-2" />
+                  </div>
+                ) : invoiceError ? (
+                  <div className="mt-2 p-3 bg-red-50 text-red-600 text-sm rounded-lg flex items-start text-left">
+                    <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
+                    <span>{invoiceError}</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center gap-2 text-green-600">
+                    <Sparkles className="w-4 h-4" />
+                    <span className="text-sm font-medium">Dados extraídos com sucesso</span>
                   </div>
                 )}
+                
                 <Button 
                   type="button" 
                   variant="outline" 
                   size="sm"
                   onClick={() => {
                     setInvoicePreview(null);
+                    setInvoiceError("");
+                    setInvoiceProgress(0);
                     handleChange('purchase_invoice_url', '');
                   }}
-                  disabled={isExtractingInvoice}
+                  disabled={isUploading || isExtractingInvoice}
                 >
                   Remover Nota
                 </Button>
               </div>
             ) : (
-              <>
+              <div className="max-w-sm mx-auto">
                 <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mx-auto mb-4">
                   {isUploading || isExtractingInvoice ? (
                     <Loader2 className="w-7 h-7 text-white animate-spin" />
@@ -273,12 +350,34 @@ const VehicleForm = ({ initialData = {}, onSubmit, onCancel, isLoading }) => {
                     <FileText className="w-7 h-7 text-white" />
                   )}
                 </div>
+                
                 <h3 className="font-semibold text-slate-800 mb-1">
                   Envie a nota fiscal de compra
                 </h3>
-                <p className="text-sm text-slate-500 mb-4">
-                  Preenche automaticamente: marca, modelo, ano, cor, placa, loja, CNPJ, data, valor e quilometragem
-                </p>
+                
+                {(isUploading || isExtractingInvoice) ? (
+                  <div className="space-y-2 text-left mt-4 mb-4">
+                     <div className="flex items-center gap-2 text-blue-600 mb-1">
+                       <Loader2 className="w-4 h-4 animate-spin" />
+                       <span className="text-sm font-medium">
+                         {isUploading ? 'Enviando arquivo...' : 'Extraindo dados...'}
+                       </span>
+                     </div>
+                     <Progress value={invoiceProgress} className="h-2" />
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-500 mb-4">
+                    Preenche automaticamente: marca, modelo, ano, cor, placa, loja, CNPJ, data, valor e quilometragem
+                  </p>
+                )}
+
+                {invoiceError && (
+                  <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg flex items-start text-left">
+                    <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
+                    <span>{invoiceError}</span>
+                  </div>
+                )}
+                
                 <label>
                   <input 
                     type="file" 
@@ -299,7 +398,8 @@ const VehicleForm = ({ initialData = {}, onSubmit, onCancel, isLoading }) => {
                     </span>
                   </Button>
                 </label>
-              </>
+                <p className="text-xs text-slate-400 mt-4">JPG, PNG ou PDF • Máximo 5MB</p>
+              </div>
             )}
           </div>
         </CardContent>

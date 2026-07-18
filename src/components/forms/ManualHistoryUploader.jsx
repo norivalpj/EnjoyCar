@@ -16,21 +16,25 @@ const ManualHistoryUploader = ({ onHistoryExtracted }) => {
     setIsUploading(true);
     
     try {
-      // Upload all files in background
-      Promise.all(files.map(file => 
-        base44.integrations.Core.UploadFile({ file })
-      )).then(results => {
-        const urls = results.map(r => r.file_url);
-        setUploadedFiles(urls);
-      }).catch(err => console.error('Upload failed but continuing:', err));
+      // Upload all files first
+      let fileUrls = [];
+      try {
+        const results = await Promise.all(files.map(file => 
+          base44.integrations.Core.UploadFile({ file })
+        ));
+        fileUrls = results.map(r => r.file_url);
+        setUploadedFiles(fileUrls);
+      } catch (err) {
+        console.error('Upload failed but continuing:', err);
+      }
       
       setIsUploading(false);
       setIsExtracting(true);
 
-      // Extract maintenance history from all uploaded pages directly using the file object
-      const extractionPromises = files.map(file =>
-        base44.integrations.Core.ExtractDataFromUploadedFile({
-          file,
+      // Extract maintenance history from all uploaded pages
+      const extractionPromises = files.map((file, index) => {
+        const fileUrl = fileUrls[index];
+        const extractPayload = {
           json_schema: {
             type: "object",
             properties: {
@@ -53,8 +57,16 @@ const ManualHistoryUploader = ({ onHistoryExtracted }) => {
               }
             }
           }
-        })
-      );
+        };
+
+        if (fileUrl) {
+          extractPayload.file_url = fileUrl;
+        } else {
+          extractPayload.file = file;
+        }
+
+        return base44.integrations.Core.ExtractDataFromUploadedFile(extractPayload);
+      });
 
       const extractionResults = await Promise.all(extractionPromises);
       

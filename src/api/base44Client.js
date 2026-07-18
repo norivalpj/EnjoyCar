@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { resizeImage } from '@/lib/imageUtils';
+import { extractTextFromPDF } from '@/lib/pdfUtils';
 import { 
   getFirestore, 
   enableIndexedDbPersistence,
@@ -287,17 +288,72 @@ export const base44 = {
       ExtractDataFromUploadedFile: async ({ file_url, file, json_schema }) => {
          const payload = { json_schema };
          if (file) {
-            const toBase64 = f => new Promise((resolve, reject) => {
-               const reader = new FileReader();
-               reader.readAsDataURL(f);
-               reader.onload = () => resolve(reader.result);
-               reader.onerror = error => reject(error);
-            });
-            payload.file_base64 = await toBase64(file);
-            payload.mime_type = file.type;
+            if (file.type === 'application/pdf') {
+               try {
+                  console.log("Extracting text from PDF locally...");
+                  const text = await extractTextFromPDF(file);
+                  if (text && text.trim().length > 0) {
+                     payload.text_content = text;
+                     console.log(`Extracted ${text.length} characters from PDF.`);
+                  } else {
+                     throw new Error("No text extracted, falling back to backend PDF processing.");
+                  }
+               } catch (err) {
+                  console.warn("Local PDF extraction failed:", err);
+                  // Fall back to sending the file
+                  payload.file_base64 = await toBase64Fallback(file);
+                  payload.mime_type = file.type;
+               }
+            } else {
+               payload.file_base64 = await toBase64Fallback(file);
+               payload.mime_type = file.type.startsWith('image/') ? 'image/jpeg' : file.type;
+            }
          } else {
             payload.file_url = file_url;
          }
+         
+         // Helper for base64 fallback
+         async function toBase64Fallback(f) {
+            return new Promise((resolve, reject) => {
+               if (!f.type.startsWith('image/')) {
+                  const reader = new FileReader();
+                  reader.readAsDataURL(f);
+                  reader.onload = () => resolve(reader.result);
+                  reader.onerror = error => reject(error);
+                  return;
+               }
+               
+               const img = new Image();
+               img.onload = () => {
+                  const canvas = document.createElement('canvas');
+                  const MAX_WIDTH = 1200;
+                  const MAX_HEIGHT = 1200;
+                  let width = img.width;
+                  let height = img.height;
+                  
+                  if (width > height) {
+                     if (width > MAX_WIDTH) {
+                        height = Math.round(height * MAX_WIDTH / width);
+                        width = MAX_WIDTH;
+                     }
+                  } else {
+                     if (height > MAX_HEIGHT) {
+                        width = Math.round(width * MAX_HEIGHT / height);
+                        height = MAX_HEIGHT;
+                     }
+                  }
+                  
+                  canvas.width = width;
+                  canvas.height = height;
+                  const ctx = canvas.getContext('2d');
+                  ctx.drawImage(img, 0, 0, width, height);
+                  resolve(canvas.toDataURL('image/jpeg', 0.7));
+               };
+               img.onerror = () => reject(new Error('Failed to load image for resizing'));
+               img.src = URL.createObjectURL(f);
+            });
+         }
+         
          const response = await fetch('/api/extract-data', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

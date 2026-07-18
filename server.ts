@@ -13,10 +13,10 @@ async function startServer() {
   app.post("/api/extract-data", async (req, res) => {
     console.log("-> /api/extract-data called with:", req.body ? Object.keys(req.body) : "nothing");
     try {
-      let { file_url, file_base64, mime_type, json_schema } = req.body;
-      if ((!file_url && !file_base64) || !json_schema) {
-        console.log("Missing file_url / file_base64 or json_schema");
-        return res.status(400).json({ error: "Missing file_url / file_base64 or json_schema" });
+      let { file_url, file_base64, mime_type, json_schema, text_content } = req.body;
+      if ((!file_url && !file_base64 && !text_content) || !json_schema) {
+        console.log("Missing file_url / file_base64 / text_content or json_schema");
+        return res.status(400).json({ error: "Missing file_url / file_base64 / text_content or json_schema" });
       }
 
       // Fix schema types to be uppercase as required by GenAI SDK
@@ -70,16 +70,31 @@ async function startServer() {
 
       // If the file_base64 came with data URI prefix, remove it:
       if (finalBase64 && finalBase64.startsWith('data:')) {
-        const matches = finalBase64.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
-        if (matches) {
-           targetMimeType = matches[1];
-           finalBase64 = matches[2];
-        } else {
-           finalBase64 = finalBase64.split(',')[1] || finalBase64;
+        const commaIndex = finalBase64.indexOf(',');
+        if (commaIndex !== -1) {
+          const header = finalBase64.substring(0, commaIndex);
+          const match = header.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64$/);
+          if (match) {
+            targetMimeType = match[1];
+          }
+          finalBase64 = finalBase64.substring(commaIndex + 1);
         }
       }
 
       console.log("Buffer read. MimeType:", targetMimeType, "Generating content with Gemini...");
+      
+      let parts = [];
+      if (text_content) {
+        parts.push({ text: `Extract the data requested in the JSON schema from the following document text:\n\n${text_content}` });
+      } else {
+        parts.push({
+          inlineData: {
+            data: finalBase64,
+            mimeType: targetMimeType
+          }
+        });
+        parts.push({ text: "Extract the data requested in the JSON schema from this file. If it's a receipt/invoice, look for vehicle information, store info, etc." });
+      }
       
       let response;
       let attempt = 0;
@@ -91,15 +106,7 @@ async function startServer() {
             contents: [
               {
                 role: 'user',
-                parts: [
-                  {
-                    inlineData: {
-                      data: finalBase64,
-                      mimeType: targetMimeType
-                    }
-                  },
-                  { text: "Extract the data requested in the JSON schema from this file. If it's a receipt/invoice, look for vehicle information, store info, etc." }
-                ]
+                parts: parts
               }
             ],
             config: {
