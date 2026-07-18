@@ -96,6 +96,79 @@ export default function Vehicles() {
             await base44.entities.Maintenance.bulkCreate(maintenancesToCreate);
             queryClient.invalidateQueries({ queryKey: ['maintenances'] });
           }
+
+          // Automatically generate maintenance plan in the background
+          toast.promise(
+            (async () => {
+              const response = await base44.integrations.Core.InvokeLLM({
+                prompt: `Você é um especialista em manutenção automotiva. Com base nas informações do veículo abaixo, gere o plano de manutenção programada completo e detalhado conforme recomendado pelo fabricante.
+
+VEÍCULO: ${newVehicle.brand} ${newVehicle.model} ${newVehicle.year ? `(${newVehicle.year})` : ''}
+Quilometragem atual: ${newVehicle.current_mileage ? newVehicle.current_mileage.toLocaleString('pt-BR') + ' km' : 'não informada'}
+
+Liste TODAS as revisões e manutenções programadas pelo fabricante, incluindo:
+- Troca de óleo e filtro de óleo
+- Filtro de ar do motor
+- Filtro de combustível
+- Filtro de cabine/ar condicionado
+- Velas de ignição
+- Correia ou corrente dentada (timing)
+- Fluido de freio
+- Fluido de transmissão
+- Líquido de arrefecimento
+- Revisão de freios
+- Alinhamento e balanceamento
+- Pneus
+- Bateria
+- Revisões gerais de 10.000 km, 20.000 km, 30.000 km, etc.
+- Quaisquer outras manutenções específicas deste modelo
+
+Para cada item, informe a quilometragem recomendada (considerando a quilometragem atual do veículo), intervalo de repetição, prioridade e especificações técnicas quando relevante (tipo de óleo, litros, etc).`,
+                add_context_from_internet: true,
+                response_json_schema: {
+                  type: "object",
+                  properties: {
+                    plans: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          maintenance_type: { type: "string" },
+                          description: { type: "string" },
+                          recommended_mileage: { type: "number" },
+                          recommended_interval_km: { type: "number" },
+                          recommended_interval_months: { type: "number" },
+                          priority: { type: "string", enum: ["low", "medium", "high"] },
+                          technical_note: { type: "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              });
+
+              if (response.plans && response.plans.length > 0) {
+                const toCreate = response.plans.map(plan => ({
+                  vehicle_id: newVehicle.id,
+                  maintenance_type: plan.maintenance_type,
+                  description: plan.description || '',
+                  recommended_mileage: plan.recommended_mileage || null,
+                  recommended_interval_km: plan.recommended_interval_km || null,
+                  recommended_interval_months: plan.recommended_interval_months || null,
+                  priority: plan.priority || 'medium',
+                  is_completed: false,
+                  technical_specs: plan.technical_note ? { parts: [plan.technical_note] } : null
+                }));
+                await base44.entities.MaintenancePlan.bulkCreate(toCreate);
+                queryClient.invalidateQueries({ queryKey: ['maintenance-plans'] });
+              }
+            })(),
+            {
+              loading: 'Gerando plano de manutenção com IA...',
+              success: 'Plano de manutenção gerado automaticamente!',
+              error: 'Não foi possível gerar o plano no momento.'
+            }
+          );
         }
       });
     }

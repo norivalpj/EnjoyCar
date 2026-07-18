@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
-  Car, Plus, Wrench, DollarSign, Calendar, ChevronRight, Bell, FileText, Phone, Star, MapPin
+  Car, Plus, Wrench, ChevronRight, Bell, Phone, Star, MapPin
 } from "lucide-react";
 import { isAfter, addDays } from "date-fns";
 import { useTranslation } from 'react-i18next';

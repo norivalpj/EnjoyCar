@@ -209,16 +209,16 @@ const createFirebaseEntity = (entityName, collectionName) => {
     bulkCreate: async (dataArray) => {
       try {
         if (!auth.currentUser) throw new Error("Unauthorized");
-        const results = [];
-        for (const data of dataArray) {
+        const promises = dataArray.map(async (data) => {
           const payload = sanitizePayload({ 
             ...data, 
             userId: auth.currentUser.uid, 
             createdAt: new Date().toISOString()
           });
           const docRef = await addDoc(collection(db, collectionName), payload);
-          results.push({ id: docRef.id, ...payload });
-        }
+          return { id: docRef.id, ...payload };
+        });
+        const results = await Promise.all(promises);
         return results;
       } catch (error) {
         handleFirestoreError(error, 'create', collectionName);
