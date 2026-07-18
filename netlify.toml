@@ -2,6 +2,10 @@
   command = "npm run build"
   publish = "dist"
 
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = ["@google/genai"]
+
 [[redirects]]
   from = "/api/extract-data"
   to = "/.netlify/functions/extract-data"
