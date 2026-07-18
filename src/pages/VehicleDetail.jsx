@@ -113,6 +113,14 @@ export default function VehicleDetail() {
     }
   });
 
+  const handleDelete = () => {
+    toast.promise(deleteMutation.mutateAsync(), {
+      loading: 'Excluindo veículo...',
+      success: 'Veículo excluído!',
+      error: 'Erro ao excluir veículo.'
+    });
+  };
+
   const totalSpent = maintenances.reduce((sum, m) => sum + (m.cost || 0), 0);
 
   const nextOilChangePlan = maintenancePlans
@@ -563,7 +571,7 @@ export default function VehicleDetail() {
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
               <AlertDialogAction 
                 className="bg-red-600 hover:bg-red-700"
-                onClick={() => deleteMutation.mutate()}
+                onClick={handleDelete}
               >
                 Excluir
               </AlertDialogAction>

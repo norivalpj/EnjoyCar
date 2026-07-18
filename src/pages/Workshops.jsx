@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from 'sonner';
 import { ArrowLeft, Plus, Wrench, Star } from "lucide-react";
 
 import WorkshopForm from '../components/forms/WorkshopForm';
@@ -48,6 +49,14 @@ export default function Workshops() {
       setDeletingWorkshop(null);
     }
   });
+
+  const handleDelete = (id) => {
+    toast.promise(deleteMutation.mutateAsync(id), {
+      loading: 'Excluindo oficina...',
+      success: 'Oficina excluída!',
+      error: 'Erro ao excluir oficina.'
+    });
+  };
 
   const handleSubmit = (data) => {
     if (editingWorkshop) {
@@ -202,7 +211,7 @@ export default function Workshops() {
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
               <AlertDialogAction 
                 className="bg-red-600 hover:bg-red-700"
-                onClick={() => deleteMutation.mutate(deletingWorkshop.id)}
+                onClick={() => handleDelete(deletingWorkshop.id)}
               >
                 Excluir
               </AlertDialogAction>

@@ -67,13 +67,16 @@ export default function Vehicles() {
     mutationFn: (id) => base44.entities.Vehicle.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vehicles'] });
-      toast.success('Veículo excluído!');
-    },
-    onError: (error) => {
-      console.error(error);
-      toast.error('Erro ao excluir veículo: ' + error.message);
     }
   });
+
+  const handleDelete = (id) => {
+    toast.promise(deleteMutation.mutateAsync(id), {
+      loading: 'Excluindo veículo...',
+      success: 'Veículo excluído!',
+      error: 'Erro ao excluir veículo.'
+    });
+  };
 
   const handleSubmit = async (data, extractedHistory = []) => {
     if (editingVehicle) {
@@ -325,7 +328,7 @@ Para cada item, informe a quilometragem recomendada (considerando a quilometrage
                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
                         <AlertDialogAction 
                           className="bg-red-600 hover:bg-red-700"
-                          onClick={() => deleteMutation.mutate(vehicle.id)}
+                          onClick={() => handleDelete(vehicle.id)}
                         >
                           Excluir
                         </AlertDialogAction>

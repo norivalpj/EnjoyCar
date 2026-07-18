@@ -12,6 +12,7 @@ import {
   AlertDialogHeader, AlertDialogTitle 
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from 'sonner';
 import { 
   ArrowLeft, Pencil, Trash2, Calendar, Gauge, MapPin, 
   FileText, Receipt, Clock, Package, ExternalLink, Car
@@ -64,6 +65,14 @@ export default function MaintenanceDetail() {
       navigate(createPageUrl('History'));
     }
   });
+
+  const handleDelete = () => {
+    toast.promise(deleteMutation.mutateAsync(), {
+      loading: 'Excluindo manutenção...',
+      success: 'Manutenção excluída!',
+      error: 'Erro ao excluir manutenção.'
+    });
+  };
 
   const vehicle = vehicles.find(v => v.id === maintenance?.vehicle_id);
 
@@ -377,7 +386,7 @@ export default function MaintenanceDetail() {
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
               <AlertDialogAction 
                 className="bg-red-600 hover:bg-red-700"
-                onClick={() => deleteMutation.mutate()}
+                onClick={handleDelete}
               >
                 Excluir
               </AlertDialogAction>

@@ -75,24 +75,6 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function generateId() {
-  return Math.random().toString(36).substring(2, 9);
-}
-
-const getLocalCache = (key) => {
-  try {
-    const item = localStorage.getItem(`base44_cache_${key}`);
-    if (item) return JSON.parse(item);
-  } catch(e) {}
-  return null;
-};
-
-const setLocalCache = (key, data) => {
-  try {
-    localStorage.setItem(`base44_cache_${key}`, JSON.stringify(data));
-  } catch(e) {}
-};
-
 const sanitizePayload = (obj) => {
   if (obj === null || typeof obj !== 'object') return obj;
   if (Array.isArray(obj)) return obj.map(sanitizePayload);
@@ -109,8 +91,6 @@ const createFirebaseEntity = (entityName, collectionName) => {
     list: async (sortStr) => {
       try {
         if (!auth.currentUser) return [];
-        const cacheKey = `${collectionName}_list_${auth.currentUser.uid}_${sortStr || 'default'}`;
-        const cached = getLocalCache(cacheKey);
         
         let q = collection(db, collectionName);
         q = query(q, where('userId', '==', auth.currentUser.uid));
@@ -122,19 +102,8 @@ const createFirebaseEntity = (entityName, collectionName) => {
           q = query(q, orderBy(field, isDesc ? 'desc' : 'asc'));
         }
         
-        const fetchPromise = getDocs(q).then(snapshot => {
-          const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          setLocalCache(cacheKey, data);
-          return data;
-        }).catch(err => {
-          console.error("Firestore list error, relying on cache.", err);
-          if (cached) return cached;
-          throw err;
-        });
-
-        // Use cache immediately if available to reduce DB reads, then silently update if needed 
-        // Or wait for it if not cached
-        return cached ? cached : await fetchPromise;
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       } catch (error) {
         handleFirestoreError(error, 'list', collectionName);
       }
@@ -165,26 +134,15 @@ const createFirebaseEntity = (entityName, collectionName) => {
     get: async (id) => {
       try {
         if (!auth.currentUser) return null;
-        const cacheKey = `${collectionName}_get_${id}`;
-        const cached = getLocalCache(cacheKey);
         
-        const fetchPromise = getDoc(doc(db, collectionName, id)).then(snapshot => {
-          if (snapshot.exists()) {
-            const data = snapshot.data();
-            if (data.userId === auth.currentUser.uid) {
-              const result = { id: snapshot.id, ...data };
-              setLocalCache(cacheKey, result);
-              return result;
-            }
+        const snapshot = await getDoc(doc(db, collectionName, id));
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          if (data.userId === auth.currentUser.uid) {
+            return { id: snapshot.id, ...data };
           }
-          return null;
-        }).catch(err => {
-          console.error("Firestore get error, relying on cache.", err);
-          if (cached) return cached;
-          throw err;
-        });
-
-        return cached ? cached : await fetchPromise;
+        }
+        return null;
       } catch (error) {
         handleFirestoreError(error, 'get', `${collectionName}/${id}`);
       }
@@ -200,7 +158,6 @@ const createFirebaseEntity = (entityName, collectionName) => {
         });
         const docRef = await addDoc(collection(db, collectionName), payload);
         const result = { id: docRef.id, ...payload };
-        setLocalCache(`${collectionName}_get_${docRef.id}`, result);
         return result;
       } catch (error) {
         handleFirestoreError(error, 'create', collectionName);
@@ -231,7 +188,6 @@ const createFirebaseEntity = (entityName, collectionName) => {
         const updatePayload = sanitizePayload({ ...data, updatedAt: new Date().toISOString() });
         await updateDoc(docRef, updatePayload);
         const result = { id, ...data, updatedAt: updatePayload.updatedAt };
-        setLocalCache(`${collectionName}_get_${id}`, result);
         return result;
       } catch (error) {
         handleFirestoreError(error, 'update', `${collectionName}/${id}`);
@@ -242,9 +198,6 @@ const createFirebaseEntity = (entityName, collectionName) => {
         if (!auth.currentUser) throw new Error("Unauthorized");
         const docRef = doc(db, collectionName, id);
         await deleteDoc(docRef);
-        try {
-           localStorage.removeItem(`base44_cache_${collectionName}_get_${id}`);
-        } catch(e){}
         return { success: true };
       } catch (error) {
         handleFirestoreError(error, 'delete', `${collectionName}/${id}`);
