@@ -117,7 +117,7 @@ export default function VehicleDetail() {
     toast.promise(deleteMutation.mutateAsync(), {
       loading: 'Excluindo veículo...',
       success: 'Veículo excluído!',
-      error: 'Erro ao excluir veículo.'
+      error: (err) => `Erro ao excluir: ${err.message}`
     });
   };
 

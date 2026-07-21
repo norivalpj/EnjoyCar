@@ -221,6 +221,7 @@ const createFirebaseEntity = (entityName, collectionName) => {
 const vehicleEntity = createFirebaseEntity('Vehicle', 'vehicles');
 vehicleEntity.delete = async (id) => {
   try {
+    console.log(`Starting cascading delete for vehicle ${id}`);
     if (!auth.currentUser) throw new Error("Unauthorized");
     
     const batch = writeBatch(db);
@@ -228,29 +229,34 @@ vehicleEntity.delete = async (id) => {
     // 1. Delete vehicle
     const vehicleRef = doc(db, 'vehicles', id);
     batch.delete(vehicleRef);
+    console.log(`Queued vehicle deletion`);
 
     // 2. Delete maintenances
     const maintQ = query(
       collection(db, 'maintenances'), 
-      where('userId', '==', auth.currentUser.uid),
-      where('vehicle_id', '==', id)
+      where('userId', '==', auth.currentUser.uid)
     );
     const maintSnap = await getDocs(maintQ);
-    maintSnap.docs.forEach(d => batch.delete(d.ref));
+    const maintsToDelete = maintSnap.docs.filter(d => d.data().vehicle_id === id);
+    maintsToDelete.forEach(d => batch.delete(d.ref));
+    console.log(`Queued ${maintsToDelete.length} maintenances for deletion`);
 
     // 3. Delete maintenancePlans
     const planQ = query(
       collection(db, 'maintenancePlans'), 
-      where('userId', '==', auth.currentUser.uid),
-      where('vehicle_id', '==', id)
+      where('userId', '==', auth.currentUser.uid)
     );
     const planSnap = await getDocs(planQ);
-    planSnap.docs.forEach(d => batch.delete(d.ref));
+    const plansToDelete = planSnap.docs.filter(d => d.data().vehicle_id === id);
+    plansToDelete.forEach(d => batch.delete(d.ref));
+    console.log(`Queued ${plansToDelete.length} plans for deletion`);
 
     await batch.commit();
+    console.log(`Successfully committed cascading delete`);
 
     return { success: true };
   } catch (error) {
+    console.error(`Cascading delete failed:`, error);
     handleFirestoreError(error, 'delete', `vehicles/${id} (cascading)`);
   }
 };
@@ -265,12 +271,22 @@ export const base44 = {
   integrations: {
     Core: {
       InvokeLLM: async ({ prompt, add_context_from_internet, response_json_schema }) => {
-         const response = await fetch('/api/invoke-llm', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt, add_context_from_internet, response_json_schema })
-         });
-         return response.json();
+         try {
+           const response = await fetch('/api/invoke-llm', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ prompt, add_context_from_internet, response_json_schema })
+           });
+           if (!response.ok) {
+             const errorData = await response.json().catch(() => ({}));
+             console.error("InvokeLLM Error:", response.status, errorData);
+             return { error: errorData.error || `HTTP Error ${response.status}` };
+           }
+           return response.json();
+         } catch (error) {
+           console.error("InvokeLLM fetch failed:", error);
+           return { error: error.message || "Failed to connect to the server" };
+         }
       },
       UploadFile: async ({ file }) => {
         if (!auth.currentUser) throw new Error("Unauthorized");

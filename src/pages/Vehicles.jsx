@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { Button } from "@/components/ui/button";
 import { 
@@ -20,6 +20,7 @@ import VehicleCard from '../components/vehicles/VehicleCard';
 import VehicleForm from '../components/forms/VehicleForm';
 
 export default function Vehicles() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState(null);
@@ -74,7 +75,7 @@ export default function Vehicles() {
     toast.promise(deleteMutation.mutateAsync(id), {
       loading: 'Excluindo veículo...',
       success: 'Veículo excluído!',
-      error: 'Erro ao excluir veículo.'
+      error: (err) => `Erro ao excluir: ${err.message}`
     });
   };
 
@@ -286,10 +287,8 @@ Para cada item, informe a quilometragem recomendada (considerando a quilometrage
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredVehicles.map(vehicle => (
-              <div key={vehicle.id} className="relative group">
-                <Link to={createPageUrl('VehicleDetail') + `?id=${vehicle.id}`}>
-                  <VehicleCard vehicle={vehicle} onClick={() => {}} />
-                </Link>
+              <div key={vehicle.id} className="relative group cursor-pointer" onClick={() => navigate(createPageUrl('VehicleDetail') + `?id=${vehicle.id}`)}>
+                <VehicleCard vehicle={vehicle} onClick={() => {}} />
                 
                 {/* Action buttons */}
                 <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -298,43 +297,44 @@ Para cada item, informe a quilometragem recomendada (considerando a quilometrage
                     size="icon" 
                     className="h-8 w-8 bg-white shadow-md"
                     onClick={(e) => {
-                      e.preventDefault();
+                      e.stopPropagation();
                       handleEdit(vehicle);
                     }}
                   >
                     <Pencil className="w-4 h-4" />
                   </Button>
                   
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button 
-                        variant="secondary" 
-                        size="icon" 
-                        className="h-8 w-8 bg-white shadow-md text-red-500 hover:text-red-600"
-                        onClick={(e) => e.preventDefault()}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Excluir veículo?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Tem certeza que deseja excluir {vehicle.brand} {vehicle.model}? 
-                          Esta ação não pode ser desfeita.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction 
-                          className="bg-red-600 hover:bg-red-700"
-                          onClick={() => handleDelete(vehicle.id)}
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          variant="secondary" 
+                          size="icon" 
+                          className="h-8 w-8 bg-white shadow-md text-red-500 hover:text-red-600"
                         >
-                          Excluir
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Excluir veículo?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Tem certeza que deseja excluir {vehicle.brand} {vehicle.model}? 
+                            Esta ação não pode ser desfeita.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction 
+                            className="bg-red-600 hover:bg-red-700"
+                            onClick={() => handleDelete(vehicle.id)}
+                          >
+                            Excluir
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
               </div>
             ))}
