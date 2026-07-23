@@ -62,6 +62,10 @@ Para cada item, informe a quilometragem recomendada (considerando a quilometrage
         }
       });
 
+      if (response.error) {
+        throw new Error(response.error);
+      }
+
       return response.plans || [];
     },
     onSuccess: async (plans) => {
@@ -148,6 +152,12 @@ Para cada item, informe a quilometragem recomendada (considerando a quilometrage
                 <span>Isso pode levar alguns segundos...</span>
               </div>
             )}
+            
+            {fetchMutation.isError && (
+              <div className="mt-4 p-3 bg-red-50 text-red-700 text-sm rounded-md border border-red-200 text-left">
+                <strong>Erro ao buscar plano:</strong> {fetchMutation.error?.message || "Erro desconhecido."}
+              </div>
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -219,11 +229,17 @@ Para cada item, informe a quilometragem recomendada (considerando a quilometrage
             </Button>
           )}
 
+          {saveMutation.isError && (
+            <div className="mt-4 p-3 bg-red-50 text-red-700 text-sm rounded-md border border-red-200 text-left">
+              <strong>Erro ao salvar:</strong> {saveMutation.error?.message || "Erro desconhecido."}
+            </div>
+          )}
+
           {/* Actions */}
           <div className="flex gap-3 pt-2">
             <Button
               variant="outline"
-              onClick={() => { setFetched(false); setPreviewPlans([]); }}
+              onClick={() => { setFetched(false); setPreviewPlans([]); saveMutation.reset(); }}
               className="flex-1"
             >
               Buscar Novamente

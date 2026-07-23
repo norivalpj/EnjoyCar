@@ -129,8 +129,11 @@ async function startServer() {
       let parsed = {};
       try {
         let text = response.text || "";
-        // Remove markdown code blocks if present
-        text = text.replace(/^```(json)?\n?/, "").replace(/\n?```$/, "").trim();
+        const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+        if (match) {
+          text = match[1];
+        }
+        text = text.trim();
         parsed = JSON.parse(text);
       } catch (e) {
         console.error("Gemini output parsing failed:", response.text);
@@ -204,9 +207,14 @@ async function startServer() {
          let parsed = {};
          try {
            let text = response.text || "";
-           text = text.replace(/^```(json)?\n?/, "").replace(/\n?```$/, "").trim();
+           const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+           if (match) {
+             text = match[1];
+           }
+           text = text.trim();
            parsed = JSON.parse(text);
          } catch (e) {
+           console.error("Failed to parse JSON from /api/invoke-llm:", response?.text);
            return res.status(500).json({ error: "Failed to parse JSON" });
          }
          return res.json(parsed);

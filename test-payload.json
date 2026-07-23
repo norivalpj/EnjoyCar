@@ -1,0 +1,24 @@
+{
+  "prompt": "Você é um especialista em manutenção automotiva. Com base nas informações do veículo abaixo, gere o plano de manutenção programada completo e detalhado conforme recomendado pelo fabricante.\n\nVEÍCULO: Toyota Corolla (2020)\nQuilometragem atual: 50.000 km\n\nListe TODAS as revisões e manutenções programadas pelo fabricante, incluindo:\n- Troca de óleo e filtro de óleo\n- Filtro de ar do motor\n- Filtro de combustível\n- Filtro de cabine/ar condicionado\n- Velas de ignição\n- Correia ou corrente dentada (timing)\n- Fluido de freio\n- Fluido de transmissão\n- Líquido de arrefecimento\n- Revisão de freios\n- Alinhamento e balanceamento\n- Pneus\n- Bateria\n- Revisões gerais de 10.000 km, 20.000 km, 30.000 km, etc.\n- Quaisquer outras manutenções específicas deste modelo\n\nPara cada item, informe a quilometragem recomendada (considerando a quilometragem atual do veículo), intervalo de repetição, prioridade e especificações técnicas quando relevante (tipo de óleo, litros, etc).",
+  "add_context_from_internet": true,
+  "response_json_schema": {
+    "type": "object",
+    "properties": {
+      "plans": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "maintenance_type": { "type": "string" },
+            "description": { "type": "string" },
+            "recommended_mileage": { "type": "number" },
+            "recommended_interval_km": { "type": "number" },
+            "recommended_interval_months": { "type": "number" },
+            "priority": { "type": "string", "enum": ["low", "medium", "high"] },
+            "technical_note": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}
