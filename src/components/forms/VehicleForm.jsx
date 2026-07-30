@@ -11,7 +11,7 @@ import { base44 } from '@/api/base44Client';
 import PhotoGallery from '../shared/PhotoGallery';
 import ManualHistoryUploader from './ManualHistoryUploader';
 
-const VehicleForm = ({ initialData = {}, onSubmit, onCancel, isLoading }) => {
+const VehicleForm = ({ initialData = {}, onSubmit, onCancel, isPending }) => {
   const [formData, setFormData] = useState({
     brand: '',
     model: '',
@@ -65,65 +65,67 @@ const VehicleForm = ({ initialData = {}, onSubmit, onCancel, isLoading }) => {
   const [suggestedBrands, setSuggestedBrands] = useState([]);
   const [suggestedModels, setSuggestedModels] = useState([]);
 
+  const ALL_BRANDS = [
+    'Chevrolet', 'Volkswagen', 'Fiat', 'Ford', 'Toyota', 'Honda', 'Hyundai',
+    'Renault', 'Nissan', 'Jeep', 'Mitsubishi', 'Peugeot', 'Citroën', 'BMW',
+    'Mercedes-Benz', 'Audi', 'Kia', 'Volvo', 'Land Rover', 'Subaru',
+    'Suzuki', 'Mazda', 'Dodge', 'Ram', 'Caoa Chery', 'BYD', 'GWM',
+    'JAC Motors', 'Lifan', 'Changan', 'HAVAL', 'Yamaha', 'Honda Motos',
+    'Kawasaki', 'Suzuki Motos', 'BMW Motorrad', 'Triumph', 'Ducati',
+    'Harley-Davidson', 'Royal Enfield', 'Dafra', 'Shineray'
+  ];
+
+  const MODEL_MAP = {
+    'Chevrolet': ['Onix', 'Onix Plus', 'Tracker', 'Spin', 'Cruze', 'S10', 'Montana', 'Equinox', 'Blazer', 'Trailblazer', 'Prisma'],
+    'Volkswagen': ['Gol', 'Polo', 'Virtus', 'T-Cross', 'Taos', 'Nivus', 'Amarok', 'Voyage', 'Up', 'Fox', 'Saveiro', 'Tiguan'],
+    'Fiat': ['Argo', 'Cronos', 'Pulse', 'Fastback', 'Toro', 'Strada', 'Ducato', 'Uno', 'Palio', 'Siena', 'Mobi'],
+    'Ford': ['Ka', 'EcoSport', 'Territory', 'Maverick', 'Ranger', 'Bronco', 'Focus', 'Fiesta', 'Edge', 'Explorer'],
+    'Toyota': ['Corolla', 'Corolla Cross', 'Yaris', 'SW4', 'Hilux', 'RAV4', 'Camry', 'Land Cruiser', 'Etios', 'Prius'],
+    'Honda': ['Civic', 'City', 'Fit', 'HR-V', 'CR-V', 'WR-V', 'Accord', 'Pilot', 'Ridgeline'],
+    'Hyundai': ['HB20', 'HB20S', 'Creta', 'Tucson', 'Santa Fe', 'i30', 'Azera', 'ix35'],
+    'Renault': ['Kwid', 'Sandero', 'Logan', 'Duster', 'Captur', 'Oroch', 'Zoe', 'Fluence', 'Megane'],
+    'Nissan': ['March', 'Versa', 'Kicks', 'Frontier', 'Sentra', 'Altima', 'Murano'],
+    'Jeep': ['Renegade', 'Compass', 'Commander', 'Wrangler', 'Grand Cherokee', 'Gladiator'],
+    'Mitsubishi': ['L200', 'Outlander', 'Eclipse Cross', 'ASX', 'Pajero', 'Lancer'],
+    'Peugeot': ['208', '2008', '3008', '308', '508', 'Partner', 'Expert', 'Boxer'],
+    'Citroën': ['C3', 'C4', 'C4 Cactus', 'Berlingo', 'Jumpy', 'Jumper', 'C5'],
+    'BMW': ['Série 1', 'Série 3', 'Série 5', 'X1', 'X3', 'X5', 'X6', 'M3', 'M5'],
+    'Mercedes-Benz': ['Classe A', 'Classe C', 'Classe E', 'GLA', 'GLC', 'GLE', 'Sprinter', 'Vito'],
+    'Audi': ['A3', 'A4', 'A5', 'A6', 'Q3', 'Q5', 'Q7', 'TT', 'RS3'],
+    'Kia': ['Sportage', 'Stinger', 'Sorento', 'Carnival', 'Cerato', 'Niro'],
+    'BYD': ['Dolphin', 'Seal', 'Tan', 'Han', 'Song Plus', 'Yuan Plus', 'Atto 3'],
+    'GWM': ['Haval H6', 'Haval H2', 'Ora', 'Poer'],
+  };
+
+  const DEFAULT_MODELS = [
+    'Sedan', 'Hatch', 'SUV', 'Pickup', 'Minivan', 'Coupê', 'Conversível'
+  ];
+
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const searchBrands = async (query) => {
-    if (!query || query.length < 2) {
+  const searchBrands = (query) => {
+    if (!query || query.length < 1) {
       setSuggestedBrands([]);
       return;
     }
-
-    setLoadingBrands(true);
-    try {
-      const response = await base44.integrations.Core.InvokeLLM({
-        prompt: `Liste as 10 marcas de veículos (carros, motos, caminhões) mais relevantes que começam com ou contêm "${query}". Inclua marcas populares e menos conhecidas. Retorne apenas nomes de marcas reais existentes no mercado mundial.`,
-        add_context_from_internet: true,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            brands: {
-              type: "array",
-              items: { type: "string" }
-            }
-          }
-        }
-      });
-
-      setSuggestedBrands(response.brands || []);
-    } catch (error) {
-      console.error('Error searching brands:', error);
-    } finally {
-      setLoadingBrands(false);
-    }
+    const filtered = ALL_BRANDS.filter(b =>
+      b.toLowerCase().includes(query.toLowerCase())
+    );
+    setSuggestedBrands(filtered.slice(0, 10));
   };
 
-  const searchModels = async (brand, query = '') => {
-    if (!brand) return;
-
-    setLoadingModels(true);
-    try {
-      const response = await base44.integrations.Core.InvokeLLM({
-        prompt: `Liste os modelos de veículos da marca ${brand}${query ? ` que contenham "${query}"` : ' (os 15 mais populares)'}. Retorne apenas modelos reais e atuais dessa marca.`,
-        add_context_from_internet: true,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            models: {
-              type: "array",
-              items: { type: "string" }
-            }
-          }
-        }
-      });
-
-      setSuggestedModels(response.models || []);
-    } catch (error) {
-      console.error('Error searching models:', error);
-    } finally {
-      setLoadingModels(false);
+  const searchModels = (brand, query = '') => {
+    const brandModels = MODEL_MAP[brand] || DEFAULT_MODELS;
+    if (!query) {
+      setSuggestedModels(brandModels.slice(0, 15));
+      return;
     }
+    const filtered = brandModels.filter(m =>
+      m.toLowerCase().includes(query.toLowerCase())
+    );
+    setSuggestedModels(filtered.slice(0, 15));
   };
 
   React.useEffect(() => {
@@ -270,14 +272,27 @@ const VehicleForm = ({ initialData = {}, onSubmit, onCancel, isLoading }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    // Strip base64 data from invoice URL — it can be several MB which breaks Firestore's 1MB limit.
+    // The extraction already happened, we only need to keep a flag that an invoice was attached.
+    let invoiceUrl = formData.purchase_invoice_url || null;
+    if (invoiceUrl && invoiceUrl.startsWith('data:')) {
+      invoiceUrl = 'invoice_attached'; // placeholder — real URL not available in offline mode
+    }
+
     const submitData = {
       ...formData,
       year: formData.year ? Number(formData.year) : null,
       current_mileage: formData.current_mileage ? Number(formData.current_mileage) : null,
       purchase_price: formData.purchase_price ? Number(formData.purchase_price) : null,
       purchase_mileage: formData.purchase_mileage ? Number(formData.purchase_mileage) : null,
-      photo_url: formData.photo_urls[0] || formData.photo_url || null
+      photo_url: formData.photo_urls[0] || formData.photo_url || null,
+      license_plate: formData.license_plate ? formData.license_plate : "N/A",
+      purchase_invoice_url: invoiceUrl
     };
+
+    console.log('[VehicleForm] Submitting data keys:', Object.keys(submitData));
+    console.log('[VehicleForm] purchase_invoice_url length:', invoiceUrl?.length ?? 0);
     onSubmit(submitData, extractedHistory);
   };
 
@@ -667,15 +682,15 @@ const VehicleForm = ({ initialData = {}, onSubmit, onCancel, isLoading }) => {
         </Button>
         <Button 
           type="submit" 
-          disabled={isLoading || isUploading || isExtractingInvoice}
+          disabled={isPending || isUploading || isExtractingInvoice}
           className="bg-blue-600 hover:bg-blue-700"
         >
-          {isLoading ? (
+          {isPending || isUploading || isExtractingInvoice ? (
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
           ) : (
             <Save className="w-4 h-4 mr-2" />
           )}
-          Salvar Veículo
+          {isPending ? 'Salvando...' : 'Salvar Veículo'}
         </Button>
       </div>
     </form>
