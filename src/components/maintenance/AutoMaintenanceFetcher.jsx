@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, Loader2, CheckCircle, ChevronDown, ChevronUp, AlertCircle } from "lucide-react";
+import { toast } from 'sonner';
 
 const AutoMaintenanceFetcher = ({ vehicle, onComplete }) => {
   const queryClient = useQueryClient();
@@ -61,7 +62,6 @@ Para cada item, informe a quilometragem recomendada (considerando a quilometrage
           }
         }
       });
-
       if (response.error) {
         throw new Error(response.error);
       }
@@ -95,7 +95,12 @@ Para cada item, informe a quilometragem recomendada (considerando a quilometrage
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['maintenance-plans'] });
+      toast.success('Plano salvo com sucesso!');
       onComplete();
+    },
+    onError: (error) => {
+      console.error(error);
+      toast.error('Erro ao salvar plano: ' + error.message);
     }
   });
 
@@ -150,12 +155,6 @@ Para cada item, informe a quilometragem recomendada (considerando a quilometrage
               <div className="flex items-center justify-center gap-2 text-blue-600 text-sm">
                 <AlertCircle className="w-4 h-4" />
                 <span>Isso pode levar alguns segundos...</span>
-              </div>
-            )}
-            
-            {fetchMutation.isError && (
-              <div className="mt-4 p-3 bg-red-50 text-red-700 text-sm rounded-md border border-red-200 text-left">
-                <strong>Erro ao buscar plano:</strong> {fetchMutation.error?.message || "Erro desconhecido."}
               </div>
             )}
           </CardContent>
@@ -229,17 +228,11 @@ Para cada item, informe a quilometragem recomendada (considerando a quilometrage
             </Button>
           )}
 
-          {saveMutation.isError && (
-            <div className="mt-4 p-3 bg-red-50 text-red-700 text-sm rounded-md border border-red-200 text-left">
-              <strong>Erro ao salvar:</strong> {saveMutation.error?.message || "Erro desconhecido."}
-            </div>
-          )}
-
           {/* Actions */}
           <div className="flex gap-3 pt-2">
             <Button
               variant="outline"
-              onClick={() => { setFetched(false); setPreviewPlans([]); saveMutation.reset(); }}
+              onClick={() => { setFetched(false); setPreviewPlans([]); }}
               className="flex-1"
             >
               Buscar Novamente
