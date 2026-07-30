@@ -14,6 +14,16 @@
   status = 200
 
 [[redirects]]
+  from = "/api/search-places"
+  to = "/.netlify/functions/search-places"
+  status = 200
+
+[[redirects]]
+  from = "/api/invoke-llm"
+  to = "/.netlify/functions/invoke-llm"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
