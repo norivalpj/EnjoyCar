@@ -5,6 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Sparkles } from "lucide-react";
+import { toast } from 'sonner';
 
 import InvoiceUploader from '../components/upload/InvoiceUploader';
 import MaintenanceForm from '../components/forms/MaintenanceForm';
@@ -70,7 +71,12 @@ export default function NewMaintenance() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['maintenances'] });
       queryClient.invalidateQueries({ queryKey: ['maintenance-plans'] });
+      toast.success('Manutenção salva com sucesso!');
       navigate(createPageUrl('Home'));
+    },
+    onError: (error) => {
+      console.error(error);
+      toast.error('Erro ao salvar manutenção: ' + error.message);
     }
   });
 
