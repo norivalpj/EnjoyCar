@@ -1,11 +1,14 @@
 import express from "express";
 import path from "path";
-import { createServer as createViteServer } from "vite";
+import { createServer as createViteServer, loadEnv } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 
 async function startServer() {
+  const env = loadEnv('', process.cwd(), '');
+  Object.assign(process.env, env);
+
   const app = express();
-  const PORT = 3000;
+  const PORT = 4000;
 
   app.use(express.json({ limit: '50mb' }));
 
@@ -102,7 +105,7 @@ async function startServer() {
       while (attempt < maxRetries) {
         try {
           response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-flash-lite-latest',
             contents: [
               {
                 role: 'user',
@@ -129,11 +132,8 @@ async function startServer() {
       let parsed = {};
       try {
         let text = response.text || "";
-        const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-        if (match) {
-          text = match[1];
-        }
-        text = text.trim();
+        // Remove markdown code blocks if present
+        text = text.replace(/^```(json)?\n?/, "").replace(/\n?```$/, "").trim();
         parsed = JSON.parse(text);
       } catch (e) {
         console.error("Gemini output parsing failed:", response.text);
@@ -188,7 +188,7 @@ async function startServer() {
       while (attempt < maxRetries) {
         try {
           response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-flash-lite-latest',
             contents: prompt,
             config
           });
@@ -207,14 +207,9 @@ async function startServer() {
          let parsed = {};
          try {
            let text = response.text || "";
-           const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-           if (match) {
-             text = match[1];
-           }
-           text = text.trim();
+           text = text.replace(/^```(json)?\n?/, "").replace(/\n?```$/, "").trim();
            parsed = JSON.parse(text);
          } catch (e) {
-           console.error("Failed to parse JSON from /api/invoke-llm:", response?.text);
            return res.status(500).json({ error: "Failed to parse JSON" });
          }
          return res.json(parsed);
@@ -223,6 +218,66 @@ async function startServer() {
       return res.json({ response: response.text });
     } catch (error) {
       console.error("/api/invoke-llm error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/search-places", async (req, res) => {
+    try {
+      const { query } = req.body;
+      
+      if (!process.env.GEMINI_API_KEY) {
+        return res.status(400).json({ error: "GEMINI_API_KEY is not configured." });
+      }
+
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const prompt = `Busque oficinas mecânicas próximas a: ${query}. 
+Para cada oficina que você encontrar na internet, retorne: nome, endereço completo, telefone (se disponível) e a nota/avaliação (rating de 0 a 5).
+Retorne até 5 oficinas reais encontradas no Google.
+Responda EXATAMENTE com este formato JSON:
+{
+  "results": [
+    {
+      "name": "Nome da Oficina",
+      "address": "Endereço",
+      "phone": "Telefone",
+      "rating": 4.5
+    }
+  ]
+}`;
+
+      let response;
+      let attempt = 0;
+      while (attempt < 3) {
+        try {
+          response = await ai.models.generateContent({
+            model: 'gemini-flash-lite-latest',
+            contents: prompt,
+            config: {
+              tools: [{ googleSearch: {} }],
+              temperature: 0.1
+            }
+          });
+          break;
+        } catch (err) {
+          attempt++;
+          if (attempt >= 3) throw err;
+          await new Promise(r => setTimeout(r, 2000 * attempt));
+        }
+      }
+
+      let parsed = { results: [] };
+      try {
+        let text = response.text || "";
+        text = text.replace(/^```(json)?\n?/, "").replace(/\n?```$/, "").trim();
+        parsed = JSON.parse(text);
+      } catch (e) {
+        console.error("Failed to parse Gemini JSON output for places:", response.text);
+      }
+
+      res.json(parsed);
+    } catch (error) {
+      console.error("/api/search-places error:", error);
       res.status(500).json({ error: error.message });
     }
   });
