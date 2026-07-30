@@ -39,7 +39,8 @@ export const db = firestoreDatabaseId && firestoreDatabaseId !== '(default)'
   ? getFirestore(app, firestoreDatabaseId) 
   : getFirestore(app);
 
-// Enable offline persistence
+// Enable offline persistence (Temporarily disabled to prevent hanging)
+/*
 enableIndexedDbPersistence(db).catch((err) => {
   if (err.code == 'failed-precondition') {
     console.warn('Multiple tabs open, persistence can only be enabled in one tab at a a time.');
@@ -47,6 +48,7 @@ enableIndexedDbPersistence(db).catch((err) => {
     console.warn('The current browser does not support all of the features required to enable persistence');
   }
 });
+*/
 
 export const auth = getAuth(app);
 export const storage = getStorage(app);
@@ -79,6 +81,9 @@ function sleep(ms) {
 const sanitizePayload = (obj) => {
   if (obj === null || typeof obj !== 'object') return obj;
   if (Array.isArray(obj)) return obj.map(sanitizePayload);
+  // Preserva objetos especiais do Firebase (FieldValues, Timestamps, etc) e Datas
+  if (obj.constructor && obj.constructor !== Object) return obj;
+  
   return Object.entries(obj).reduce((acc, [key, val]) => {
     if (val !== undefined) {
       acc[key] = typeof val === 'object' ? sanitizePayload(val) : val;
@@ -151,16 +156,32 @@ const createFirebaseEntity = (entityName, collectionName) => {
     create: async (data) => {
       try {
         if (!auth.currentUser) throw new Error("Unauthorized");
+
+        // Strip base64 strings — they can exceed Firestore's 1MB document limit
+        const cleanData = Object.fromEntries(
+          Object.entries(data).map(([k, v]) => {
+            if (typeof v === 'string' && v.startsWith('data:') && v.length > 5000) {
+              console.warn(`[Firestore] Stripping large base64 field "${k}" (${Math.round(v.length/1024)}KB)`);
+              return [k, 'base64_stripped'];
+            }
+            return [k, v];
+          })
+        );
+
         const batch = writeBatch(db);
         const newDocRef = doc(collection(db, collectionName));
         const payload = sanitizePayload({ 
-          ...data, 
+          ...cleanData, 
           userId: auth.currentUser.uid, 
-          // Use client timestamp to avoid waiting for server sync on offline or slow connections
-          createdAt: new Date().toISOString()
+          createdAt: serverTimestamp()
         });
+
+        const payloadSize = JSON.stringify(payload).length;
+        console.log(`[Firestore] Creating ${collectionName}, payload ~${Math.round(payloadSize/1024)}KB`);
+
         batch.set(newDocRef, payload);
         await batch.commit();
+        console.log(`[Firestore] Created ${collectionName}/${newDocRef.id} ✓`);
         const result = { id: newDocRef.id, ...payload };
         return result;
       } catch (error) {
@@ -177,7 +198,7 @@ const createFirebaseEntity = (entityName, collectionName) => {
           const payload = sanitizePayload({ 
             ...data, 
             userId: auth.currentUser.uid, 
-            createdAt: new Date().toISOString()
+            createdAt: serverTimestamp()
           });
           const docRef = doc(collRef);
           batch.set(docRef, payload);
@@ -192,12 +213,27 @@ const createFirebaseEntity = (entityName, collectionName) => {
     update: async (id, data) => {
       try {
         if (!auth.currentUser) throw new Error("Unauthorized");
+
+        // Strip immutable fields — Firestore rules forbid changing these
+        const { userId, createdAt, id: _id, ...mutableData } = data;
+
+        // Strip base64 strings to avoid exceeding Firestore's 1MB limit
+        const cleanData = Object.fromEntries(
+          Object.entries(mutableData).map(([k, v]) => {
+            if (typeof v === 'string' && v.startsWith('data:') && v.length > 5000) {
+              console.warn(`[Firestore] Stripping large base64 field "${k}" on update`);
+              return [k, 'base64_stripped'];
+            }
+            return [k, v];
+          })
+        );
+
         const batch = writeBatch(db);
         const docRef = doc(db, collectionName, id);
-        const updatePayload = sanitizePayload({ ...data, updatedAt: new Date().toISOString() });
+        const updatePayload = sanitizePayload({ ...cleanData, updatedAt: serverTimestamp() });
         batch.update(docRef, updatePayload);
         await batch.commit();
-        const result = { id, ...data, updatedAt: updatePayload.updatedAt };
+        const result = { id, ...cleanData, updatedAt: updatePayload.updatedAt };
         return result;
       } catch (error) {
         handleFirestoreError(error, 'update', `${collectionName}/${id}`);
