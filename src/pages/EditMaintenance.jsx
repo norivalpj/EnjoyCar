@@ -6,6 +6,7 @@ import { createPageUrl } from '@/utils';
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft } from "lucide-react";
+import { toast } from 'sonner';
 
 import MaintenanceForm from '../components/forms/MaintenanceForm';
 
@@ -35,7 +36,12 @@ export default function EditMaintenance() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['maintenances'] });
       queryClient.invalidateQueries({ queryKey: ['maintenance', maintenanceId] });
+      toast.success('Manutenção atualizada com sucesso!');
       navigate(createPageUrl('MaintenanceDetail') + `?id=${maintenanceId}`);
+    },
+    onError: (error) => {
+      console.error(error);
+      toast.error('Erro ao atualizar manutenção: ' + error.message);
     }
   });
 
