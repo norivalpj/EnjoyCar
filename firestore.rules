@@ -37,7 +37,7 @@ service cloud.firestore {
              data.userId == request.auth.uid &&
              data.brand is string && data.brand.size() > 0 && data.brand.size() <= 100 &&
              data.model is string && data.model.size() > 0 && data.model.size() <= 100 &&
-             data.license_plate is string && data.license_plate.size() > 0 && data.license_plate.size() <= 20;
+             data.license_plate is string && data.license_plate.size() <= 20;
     }
 
     match /vehicles/{vehicleId} {
