@@ -105,7 +105,7 @@ async function startServer() {
       while (attempt < maxRetries) {
         try {
           response = await ai.models.generateContent({
-            model: 'gemini-flash-lite-latest',
+            model: 'gemini-2.5-flash',
             contents: [
               {
                 role: 'user',
@@ -188,7 +188,7 @@ async function startServer() {
       while (attempt < maxRetries) {
         try {
           response = await ai.models.generateContent({
-            model: 'gemini-flash-lite-latest',
+            model: 'gemini-2.5-flash',
             contents: prompt,
             config
           });
@@ -231,10 +231,16 @@ async function startServer() {
       }
 
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const prompt = `Busque oficinas mecânicas próximas a: ${query}. 
-Para cada oficina que você encontrar na internet, retorne: nome, endereço completo, telefone (se disponível) e a nota/avaliação (rating de 0 a 5).
-Retorne até 5 oficinas reais encontradas no Google.
-Responda EXATAMENTE com este formato JSON:
+      const prompt = `Você é um assistente de busca de locais no Google.
+O usuário buscou por: "${query}".
+
+Sua tarefa:
+1. Se a busca parecer o nome de uma oficina específica (ex: "Tecno Auto Campinas"), busque os dados EXATOS dessa oficina e garanta que ela seja o primeiro resultado da lista.
+2. Se a busca for genérica (ex: "centro", "campinas"), busque as melhores oficinas mecânicas na região.
+3. Retorne até 5 oficinas reais encontradas.
+
+Para cada oficina, retorne: nome, endereço completo, telefone (se disponível) e a nota (rating de 0 a 5).
+Responda EXATAMENTE com este formato JSON puro, sem marcações markdown extra:
 {
   "results": [
     {
@@ -251,7 +257,7 @@ Responda EXATAMENTE com este formato JSON:
       while (attempt < 3) {
         try {
           response = await ai.models.generateContent({
-            model: 'gemini-flash-lite-latest',
+            model: 'gemini-2.5-flash',
             contents: prompt,
             config: {
               tools: [{ googleSearch: {} }],
