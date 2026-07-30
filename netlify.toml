@@ -3,7 +3,7 @@
   publish = "dist"
 
 [build.environment]
-  SECRET_SCANNING_DISABLED = "true"
+  SECRETS_SCAN_ENABLED = "false"
 
 [functions]
   node_bundler = "esbuild"
