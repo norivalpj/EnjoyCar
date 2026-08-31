@@ -99,12 +99,17 @@ const MaintenanceForm = ({
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    let finalInvoiceUrl = invoiceUrl;
+    if (finalInvoiceUrl && finalInvoiceUrl.startsWith('data:')) {
+      finalInvoiceUrl = 'invoice_attached'; // placeholder se o upload pro storage falhou e voltou pra base64
+    }
+
     const submitData = {
       ...formData,
       mileage: formData.mileage ? Number(formData.mileage) : null,
       cost: formData.cost ? Number(formData.cost) : null,
       next_maintenance_mileage: formData.next_maintenance_mileage ? Number(formData.next_maintenance_mileage) : null,
-      invoice_url: invoiceUrl
+      invoice_url: finalInvoiceUrl
     };
     onSubmit(submitData);
   };
