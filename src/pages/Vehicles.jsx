@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from 'sonner';
-import { ArrowLeft, Plus, Car, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Car, Pencil, Trash2, Image as ImageIcon } from "lucide-react";
 
 import VehicleCard from '../components/vehicles/VehicleCard';
 import VehicleForm from '../components/forms/VehicleForm';
@@ -235,6 +235,21 @@ export default function Vehicles() {
                   >
                     <Pencil className="w-4 h-4" />
                   </Button>
+
+                  {(vehicle.photo_url || (vehicle.photo_urls && vehicle.photo_urls.length > 0)) && (
+                    <Button 
+                      variant="secondary" 
+                      size="icon" 
+                      className="h-8 w-8 bg-white shadow-md text-blue-500 hover:text-blue-600"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.open(vehicle.photo_url || vehicle.photo_urls[0], '_blank');
+                      }}
+                      title="Ver Foto"
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                    </Button>
+                  )}
                   
                   <div onClick={(e) => e.stopPropagation()}>
                     <AlertDialog>
