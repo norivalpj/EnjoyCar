@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -11,14 +12,22 @@ import {
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter, 
   AlertDialogHeader, AlertDialogTitle 
 } from "@/components/ui/alert-dialog";
+import { 
+  Dialog, DialogContent, DialogHeader, 
+  DialogTitle, DialogFooter, DialogTrigger 
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
   ArrowLeft, Pencil, Trash2, Calendar, Gauge, 
   Palette, FileText, ShoppingCart, Building2, CreditCard, 
-  ExternalLink, ChevronRight, BookOpen, Droplets, Map, Download
+  ExternalLink, ChevronRight, BookOpen, Droplets, Map, Download,
+  Activity, TrendingUp, PlusCircle
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import MaintenanceCard from '../components/maintenance/MaintenanceCard';
 import MaintenanceSuggestions from '../components/maintenance/MaintenanceSuggestions';
 
@@ -26,6 +35,32 @@ export default function VehicleDetail() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showUpdateKmDialog, setShowUpdateKmDialog] = useState(false);
+  const [newKmValue, setNewKmValue] = useState("");
+
+  const updateKmMutation = useMutation({
+    mutationFn: async (newKm) => {
+      const history = vehicle.mileage_history || [];
+      const updatedHistory = [
+        ...history,
+        {
+          date: new Date().toISOString(),
+          mileage: newKm,
+          source: 'manual_update'
+        }
+      ];
+      await base44.entities.Vehicle.update(vehicle.id, { 
+        current_mileage: newKm,
+        mileage_history: updatedHistory
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['vehicle', vehicleId]);
+      setShowUpdateKmDialog(false);
+      setNewKmValue("");
+      toast.success("Quilometragem atualizada!"); 
+    }
+  });
 
   const urlParams = new URLSearchParams(window.location.search);
   const vehicleId = urlParams.get('id');
@@ -129,13 +164,69 @@ export default function VehicleDetail() {
     
   const totalDistance = (vehicle?.current_mileage || 0) - (vehicle?.purchase_mileage || 0);
 
-  if (loadingVehicle) {
+  // Compile mileage history
+  const historyData = [];
+
+  if (vehicle?.purchase_mileage) {
+    historyData.push({
+      date: new Date(vehicle.purchase_date || vehicle.createdAt || Date.now()).getTime(),
+      mileage: vehicle.purchase_mileage,
+      source: 'Compra'
+    });
+  }
+
+  maintenances.forEach(m => {
+    if (m.mileage) {
+      historyData.push({
+        date: new Date(m.date).getTime(),
+        mileage: m.mileage,
+        source: 'Manutenção'
+      });
+    }
+  });
+
+  if (vehicle?.mileage_history) {
+    vehicle.mileage_history.forEach(h => {
+      historyData.push({
+        date: new Date(h.date).getTime(),
+        mileage: h.mileage,
+        source: 'Atualização Manual'
+      });
+    });
+  }
+
+  if (vehicle?.current_mileage && historyData.length > 0) {
+      const latest = Math.max(...historyData.map(d => d.mileage));
+      if (vehicle.current_mileage > latest) {
+        historyData.push({
+          date: Date.now(),
+          mileage: vehicle.current_mileage,
+          source: 'Atual'
+        });
+      }
+  } else if (vehicle?.current_mileage && historyData.length === 0) {
+      historyData.push({
+        date: Date.now(),
+        mileage: vehicle.current_mileage,
+        source: 'Atual'
+      });
+  }
+
+  const chartData = historyData
+    .sort((a, b) => a.date - b.date)
+    .map(d => ({
+      ...d,
+      formattedDate: format(new Date(d.date), "dd/MM/yyyy")
+    }));
+
+  if (loadingVehicle || loadingMaintenances) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
-        <div className="max-w-4xl mx-auto px-4 py-8">
-          <Skeleton className="h-8 w-48 mb-8" />
-          <Skeleton className="h-64 rounded-xl mb-4" />
-          <Skeleton className="h-48 rounded-xl" />
+      <div className="p-8 max-w-4xl mx-auto space-y-6">
+        <Skeleton className="h-12 w-1/3" />
+        <Skeleton className="h-64 w-full" />
+        <div className="grid grid-cols-2 gap-4">
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-32 w-full" />
         </div>
       </div>
     );
@@ -143,9 +234,16 @@ export default function VehicleDetail() {
 
   if (!vehicle) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold text-slate-700 mb-2">Veículo não encontrado</h2>
+      <div className="flex-1 h-full flex flex-col items-center justify-center p-8 bg-slate-50 text-center">
+        <div className="w-24 h-24 bg-slate-200 rounded-full flex items-center justify-center mb-6">
+          <Car className="w-12 h-12 text-slate-400" />
+        </div>
+        <h2 className="text-2xl font-bold text-slate-800 mb-2">Veículo não encontrado</h2>
+        <p className="text-slate-500 mb-6">O veículo que você está procurando não existe ou foi removido.</p>
+        <div className="flex gap-4">
+          <Button variant="outline" onClick={() => window.history.back()}>
+            Voltar
+          </Button>
           <Link to={createPageUrl('Vehicles')}>
             <Button variant="link">Voltar aos veículos</Button>
           </Link>
@@ -224,16 +322,57 @@ export default function VehicleDetail() {
               <div className="p-3 bg-slate-200 text-slate-800 rounded-full">
                 <Map className="w-8 h-8" />
               </div>
-              <div>
-                <p className="text-slate-500 font-medium">Distância Total Percorrida</p>
-                <p className="text-3xl font-bold text-slate-800 tracking-tight mt-1">
-                  {totalDistance.toLocaleString('pt-BR')} <span className="text-lg font-medium text-slate-500">km</span>
-                </p>
-                {vehicle?.purchase_mileage > 0 && (
-                  <p className="text-sm text-slate-500 mt-2">
-                    Desde a compra ({vehicle.purchase_mileage.toLocaleString('pt-BR')} km)
+              <div className="flex-1 flex items-start justify-between">
+                <div>
+                  <p className="text-slate-500 font-medium">Distância Total Percorrida</p>
+                  <p className="text-3xl font-bold text-slate-800 tracking-tight mt-1">
+                    {totalDistance.toLocaleString('pt-BR')} <span className="text-lg font-medium text-slate-500">km</span>
                   </p>
-                )}
+                  {vehicle?.purchase_mileage > 0 && (
+                    <p className="text-sm text-slate-500 mt-2">
+                      Desde a compra ({vehicle.purchase_mileage.toLocaleString('pt-BR')} km)
+                    </p>
+                  )}
+                </div>
+                
+                <Dialog open={showUpdateKmDialog} onOpenChange={setShowUpdateKmDialog}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="ml-4 gap-1 text-slate-700 bg-white shadow-sm border-slate-200">
+                      <PlusCircle className="w-4 h-4" />
+                      Atualizar KM
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Atualizar Quilometragem</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <Label>Nova Quilometragem (KM atual)</Label>
+                        <Input 
+                          type="number" 
+                          placeholder="Ex: 55000"
+                          value={newKmValue}
+                          onChange={(e) => setNewKmValue(e.target.value)}
+                        />
+                        {vehicle?.current_mileage && (
+                          <p className="text-sm text-slate-500">
+                            Última registrada: {vehicle.current_mileage.toLocaleString('pt-BR')} km
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setShowUpdateKmDialog(false)}>Cancelar</Button>
+                      <Button 
+                        onClick={() => updateKmMutation.mutate(Number(newKmValue))}
+                        disabled={!newKmValue || updateKmMutation.isPending || Number(newKmValue) <= (vehicle?.current_mileage || 0)}
+                      >
+                        {updateKmMutation.isPending ? "Salvando..." : "Salvar"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
             </CardContent>
           </Card>
@@ -273,6 +412,56 @@ export default function VehicleDetail() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Mileage History Chart */}
+        {chartData.length > 1 && (
+          <Card className="mb-8">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-blue-600" />
+                Histórico de Quilometragem
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                    <XAxis 
+                      dataKey="formattedDate" 
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: '#64748b', fontSize: 12 }}
+                      dy={10}
+                    />
+                    <YAxis 
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: '#64748b', fontSize: 12 }}
+                      tickFormatter={(value) => value.toLocaleString('pt-BR')}
+                    />
+                    <Tooltip 
+                      formatter={(value, name, props) => [
+                        `${value.toLocaleString('pt-BR')} km`, 
+                        props.payload.source || 'KM'
+                      ]}
+                      labelFormatter={(label) => `Data: ${label}`}
+                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="mileage" 
+                      stroke="#2563eb" 
+                      strokeWidth={3}
+                      dot={{ r: 4, fill: '#2563eb', strokeWidth: 2, stroke: '#fff' }}
+                      activeDot={{ r: 6, fill: '#1d4ed8', strokeWidth: 0 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           {/* Basic Info */}
