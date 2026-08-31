@@ -23,7 +23,7 @@ const PhotoGallery = ({ photos = [], onPhotosChange, maxPhotos = 8, label = "Fot
     setIsUploading(true);
     try {
       const uploadPromises = filesToUpload.map(file => 
-        base44.integrations.Core.UploadFile({ file })
+        base44.integrations.Core.UploadFile({ file, folder: 'vehicles' })
       );
       const results = await Promise.all(uploadPromises);
       const newUrls = results.map(r => r.file_url);
