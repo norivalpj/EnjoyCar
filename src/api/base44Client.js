@@ -324,7 +324,7 @@ export const base44 = {
            return { error: error.message || "Failed to connect to the server" };
          }
       },
-      UploadFile: async ({ file }) => {
+      UploadFile: async ({ file, folder = 'invoices' }) => {
         if (!auth.currentUser) throw new Error("Unauthorized");
         
         let optimizedFile = file;
@@ -339,15 +339,26 @@ export const base44 = {
           }
         }
         
-        // Convert to Base64
-        const file_url = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.readAsDataURL(optimizedFile);
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = error => reject(error);
-        });
-        
+        // Convert to Base64 (fallback just in case) or directly upload Blob
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(2,9)}`;
+        const filePath = `users/${auth.currentUser.uid}/${folder}/${fileName}.jpg`;
+        const fileRef = storageRef(storage, filePath);
+        
+        let file_url;
+        try {
+          await uploadBytes(fileRef, optimizedFile);
+          file_url = await getDownloadURL(fileRef);
+          console.log("File uploaded to Firebase Storage:", file_url);
+        } catch (uploadError) {
+          console.error("Firebase Storage upload failed, falling back to local base64:", uploadError);
+          file_url = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(optimizedFile);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+          });
+        }
+        
         return { file_url, file_id: fileName };
       },
       ExtractDataFromUploadedFile: async ({ file_url, file, json_schema }) => {
