@@ -156,7 +156,7 @@ const VehicleForm = ({ initialData = {}, onSubmit, onCancel, isPending }) => {
 
     setIsUploading(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await base44.integrations.Core.UploadFile({ file, folder: 'vehicles' });
       handleChange('photo_url', file_url);
     } catch (error) {
       console.error('Error uploading photo:', error);
@@ -291,6 +291,23 @@ const VehicleForm = ({ initialData = {}, onSubmit, onCancel, isPending }) => {
       purchase_invoice_url: invoiceUrl
     };
 
+    // Update mileage history if current_mileage changed manually
+    const newMileage = submitData.current_mileage;
+    const oldMileage = initialData.current_mileage ? Number(initialData.current_mileage) : null;
+    
+    let mileage_history = initialData.mileage_history || [];
+    if (newMileage && newMileage !== oldMileage) {
+      mileage_history = [
+        ...mileage_history,
+        {
+          date: new Date().toISOString(),
+          mileage: newMileage,
+          source: 'manual_update'
+        }
+      ];
+      submitData.mileage_history = mileage_history;
+    }
+
     console.log('[VehicleForm] Submitting data keys:', Object.keys(submitData));
     console.log('[VehicleForm] purchase_invoice_url length:', invoiceUrl?.length ?? 0);
     onSubmit(submitData, extractedHistory);
@@ -393,26 +410,51 @@ const VehicleForm = ({ initialData = {}, onSubmit, onCancel, isPending }) => {
                   </div>
                 )}
                 
-                <label>
-                  <input 
-                    type="file" 
-                    accept="image/*,.pdf" 
-                    className="hidden" 
-                    onChange={handleInvoiceUpload}
-                    disabled={isUploading || isExtractingInvoice}
-                  />
-                  <Button 
-                    type="button" 
-                    className="cursor-pointer bg-blue-600 hover:bg-blue-700" 
-                    asChild
-                    disabled={isUploading || isExtractingInvoice}
-                  >
-                    <span>
-                      <Upload className="w-4 h-4 mr-2" />
-                      {isUploading ? 'Enviando...' : isExtractingInvoice ? 'Processando...' : 'Selecionar Nota Fiscal'}
-                    </span>
-                  </Button>
-                </label>
+                <div className="flex gap-3 justify-center">
+                  <label>
+                    <input 
+                      type="file" 
+                      accept="image/*,.pdf" 
+                      className="hidden" 
+                      onChange={handleInvoiceUpload}
+                      disabled={isUploading || isExtractingInvoice}
+                    />
+                    <Button 
+                      type="button" 
+                      variant="outline"
+                      className="cursor-pointer" 
+                      asChild
+                      disabled={isUploading || isExtractingInvoice}
+                    >
+                      <span>
+                        <FileText className="w-4 h-4 mr-2" />
+                        Arquivo / Galeria
+                      </span>
+                    </Button>
+                  </label>
+
+                  <label>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      capture="environment"
+                      className="hidden" 
+                      onChange={handleInvoiceUpload}
+                      disabled={isUploading || isExtractingInvoice}
+                    />
+                    <Button 
+                      type="button" 
+                      className="cursor-pointer bg-blue-600 hover:bg-blue-700" 
+                      asChild
+                      disabled={isUploading || isExtractingInvoice}
+                    >
+                      <span>
+                        <Upload className="w-4 h-4 mr-2" />
+                        Tirar Foto
+                      </span>
+                    </Button>
+                  </label>
+                </div>
                 <p className="text-xs text-slate-400 mt-4">JPG, PNG ou PDF • Máximo 5MB</p>
               </div>
             )}
@@ -564,14 +606,26 @@ const VehicleForm = ({ initialData = {}, onSubmit, onCancel, isPending }) => {
           <Card>
             <CardContent className="p-6 space-y-6">
               {invoicePreview && (
-                <div className="border border-green-200 bg-green-50 rounded-lg p-4 flex items-start gap-3">
+                <div className="border border-green-200 bg-green-50 rounded-lg p-4 flex items-start gap-3 relative">
                   <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
                     <FileText className="w-5 h-5 text-green-600" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-green-800">Nota fiscal anexada</p>
-                    <p className="text-xs text-green-600 mt-0.5">Os dados foram extraídos automaticamente</p>
+                    <p className="text-xs text-green-600 mt-0.5">Clique no botão para remover</p>
                   </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-green-700 hover:text-red-500 hover:bg-red-50 absolute right-2 top-2"
+                    onClick={() => {
+                      setInvoicePreview(null);
+                      handleChange('purchase_invoice_url', null);
+                    }}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
                 </div>
               )}
 
