@@ -128,6 +128,17 @@ export default function MaintenanceDetail() {
                 <Pencil className="w-4 h-4" />
               </Button>
             </Link>
+            {maintenance.invoice_url && maintenance.invoice_url !== 'invoice_attached' && (
+              <Button 
+                variant="outline" 
+                size="icon" 
+                className="text-blue-500 hover:text-blue-600"
+                onClick={() => window.open(maintenance.invoice_url, '_blank')}
+                title="Ver Nota Fiscal"
+              >
+                <FileText className="w-4 h-4" />
+              </Button>
+            )}
             <Button 
               variant="outline" 
               size="icon" 
