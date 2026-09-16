@@ -144,7 +144,9 @@ const MaintenanceNotifications = () => {
                             <div className="flex items-center gap-2 mb-1">
                               <Car className="w-4 h-4 text-slate-600" />
                               <p className="font-semibold text-slate-800">
-                                {notification.vehicle.brand} {notification.vehicle.model}
+                                {notification.vehicle.license_plate && notification.vehicle.license_plate !== 'N/A' 
+                                  ? `${notification.vehicle.license_plate} (${notification.vehicle.brand} ${notification.vehicle.model})` 
+                                  : `${notification.vehicle.brand} ${notification.vehicle.model}`}
                               </p>
                             </div>
                             <p className="text-sm text-slate-700 font-medium">
