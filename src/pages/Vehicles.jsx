@@ -84,7 +84,12 @@ export default function Vehicles() {
       updateMutation.mutate({ id: editingVehicle.id, data });
     } else {
       // Create vehicle first, then handle history if needed
-      createMutation.mutate(data, {
+      const createData = { ...data };
+      if (createData.license_plate && createData.license_plate !== 'N/A') {
+        createData.id = createData.license_plate.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      }
+      
+      createMutation.mutate(createData, {
         onSuccess: async (newVehicle) => {
           // Create extracted maintenances if any (from manual history upload)
           if (extractedHistory.length > 0) {
