@@ -70,7 +70,10 @@ export default function History() {
   // Get vehicle name helper
   const getVehicleName = (vehicleId) => {
     const vehicle = vehicles.find(v => v.id === vehicleId);
-    return vehicle ? `${vehicle.brand} ${vehicle.model}` : '';
+    if (!vehicle) return '';
+    return vehicle.license_plate && vehicle.license_plate !== 'N/A' 
+      ? `${vehicle.license_plate} (${vehicle.brand} ${vehicle.model})`
+      : `${vehicle.brand} ${vehicle.model}`;
   };
 
   // Group by month
