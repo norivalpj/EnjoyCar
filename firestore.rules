@@ -52,7 +52,7 @@ service cloud.firestore {
           'brand', 'model', 'year', 'license_plate', 'color', 'current_mileage',
           'photo_url', 'photo_urls', 'purchase_date', 'purchase_store',
           'purchase_cnpj', 'purchase_price', 'purchase_mileage',
-          'purchase_invoice_url', 'purchase_notes', 'updatedAt'
+          'purchase_invoice_url', 'purchase_notes', 'mileage_history', 'updatedAt'
         ]);
       allow delete: if isOwner(existing().userId) && isValidId(vehicleId);
     }
