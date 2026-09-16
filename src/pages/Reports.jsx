@@ -291,7 +291,9 @@ Seja detalhado, específico e forneça insights acionáveis baseados nos dados r
                         <SelectItem value="all">Todos os Veículos</SelectItem>
                         {vehicles.map(vehicle => (
                           <SelectItem key={vehicle.id} value={vehicle.id}>
-                            {vehicle.brand} {vehicle.model} - {vehicle.license_plate}
+                            {vehicle.license_plate && vehicle.license_plate !== 'N/A' 
+                              ? `${vehicle.license_plate} (${vehicle.brand} ${vehicle.model})` 
+                              : `${vehicle.brand} ${vehicle.model}`}
                           </SelectItem>
                         ))}
                       </SelectContent>
