@@ -169,7 +169,13 @@ const createFirebaseEntity = (entityName, collectionName) => {
         );
 
         const batch = writeBatch(db);
-        const newDocRef = doc(collection(db, collectionName));
+        let newDocRef;
+        if (cleanData.id) {
+          newDocRef = doc(db, collectionName, cleanData.id);
+          delete cleanData.id;
+        } else {
+          newDocRef = doc(collection(db, collectionName));
+        }
         const payload = sanitizePayload({ 
           ...cleanData, 
           userId: auth.currentUser.uid, 
