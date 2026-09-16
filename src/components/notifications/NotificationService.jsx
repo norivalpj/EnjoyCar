@@ -124,9 +124,12 @@ Equipe Gestão de Veículos`;
 
 async function sendMaintenanceAlert(user, items) {
   const lines = items
-    .map(({ plan, vehicle, reason }) =>
-      `• [${reason?.includes('atrasada') ? '🔴 ATRASADA' : '🟡 PRÓXIMA'}] ${vehicle.brand} ${vehicle.model} — ${plan.maintenance_type} (${reason})`
-    )
+    .map(({ plan, vehicle, reason }) => {
+      const vName = vehicle.license_plate && vehicle.license_plate !== 'N/A' 
+        ? `${vehicle.license_plate} (${vehicle.brand} ${vehicle.model})` 
+        : `${vehicle.brand} ${vehicle.model}`;
+      return `• [${reason?.includes('atrasada') ? '🔴 ATRASADA' : '🟡 PRÓXIMA'}] ${vName} — ${plan.maintenance_type} (${reason})`;
+    })
     .join('\n');
 
   const body = `Olá${user.full_name ? ', ' + user.full_name : ''}!
