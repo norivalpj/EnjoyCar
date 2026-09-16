@@ -1,0 +1,27 @@
+Project Name: Enjoy Car
+
+[EN]
+Description:
+A dynamic web application built for the automotive sector. It leverages a modern frontend stack combined with Firebase backend services (Auth and Firestore) to deliver a seamless user experience. The project is optimized for performance and is seamlessly deployed using Netlify and Cloudflare.
+
+Key Technologies:
+- React (Vite)
+- Tailwind CSS
+- Firebase (Auth, Firestore)
+- Netlify
+
+Impact:
+Delivers a fast, secure, and user-friendly platform tailored for automotive management or services, showcasing end-to-end full-stack development skills.
+
+[PT-BR]
+Descrição:
+Uma aplicação web dinâmica desenvolvida para o setor automotivo. Aproveita as modernas tecnologias de front-end combinadas aos serviços de back-end do Firebase (Autenticação e Firestore) para oferecer uma experiência de usuário perfeita. O projeto é otimizado para alto desempenho e implantado sem complicações através da Netlify e Cloudflare.
+
+Tecnologias Principais:
+- React (Vite)
+- Tailwind CSS
+- Firebase (Auth, Firestore)
+- Netlify
+
+Impacto:
+Oferece uma plataforma rápida, segura e fácil de usar, feita sob medida para serviços ou gestão automotiva, demonstrando habilidades de desenvolvimento full-stack de ponta a ponta.
