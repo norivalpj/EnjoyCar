@@ -55,10 +55,14 @@ export default function VehicleDetail() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['vehicle', vehicleId]);
+      queryClient.invalidateQueries({ queryKey: ['vehicle', vehicleId] });
       setShowUpdateKmDialog(false);
       setNewKmValue("");
       toast.success("Quilometragem atualizada!"); 
+    },
+    onError: (error) => {
+      console.error(error);
+      toast.error('Erro ao atualizar KM: ' + error.message);
     }
   });
 
@@ -106,7 +110,9 @@ export default function VehicleDetail() {
     ];
 
     const rows = maintenances.map(m => {
-      const vehicleName = `${vehicle.brand} ${vehicle.model}`;
+      const vehicleName = vehicle.license_plate && vehicle.license_plate !== 'N/A'
+        ? `${vehicle.license_plate} (${vehicle.brand} ${vehicle.model})`
+        : `${vehicle.brand} ${vehicle.model}`;
       const mDate = m.date ? format(new Date(m.date), 'dd/MM/yyyy') : '';
       const cost = m.cost !== undefined ? m.cost.toString().replace('.', ',') : '0,00';
       
