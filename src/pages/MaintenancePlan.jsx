@@ -131,7 +131,9 @@ export default function MaintenancePlan() {
             <div>
               <h1 className="text-2xl font-bold text-slate-800">Plano de Manutenção</h1>
               <p className="text-slate-500 text-sm mt-0.5">
-                {vehicle.brand} {vehicle.model} - {vehicle.license_plate}
+                {vehicle.license_plate && vehicle.license_plate !== 'N/A' 
+                  ? `${vehicle.license_plate} (${vehicle.brand} ${vehicle.model})` 
+                  : `${vehicle.brand} ${vehicle.model}`}
               </p>
             </div>
           </div>
