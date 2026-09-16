@@ -134,7 +134,9 @@ const MaintenanceForm = ({
                 <SelectContent>
                   {vehicles.map(v => (
                     <SelectItem key={v.id} value={v.id}>
-                      {v.brand} {v.model} - {v.license_plate}
+                      {v.license_plate && v.license_plate !== 'N/A' 
+                        ? `${v.license_plate} (${v.brand} ${v.model})` 
+                        : `${v.brand} ${v.model}`}
                     </SelectItem>
                   ))}
                 </SelectContent>
