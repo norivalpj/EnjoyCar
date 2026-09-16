@@ -84,7 +84,9 @@ const MaintenanceFilters = ({ vehicles, filters, onFilterChange, onClearFilters 
                     <SelectItem value="all">Todos os veículos</SelectItem>
                     {vehicles.map(vehicle => (
                       <SelectItem key={vehicle.id} value={vehicle.id}>
-                        {vehicle.brand} {vehicle.model} - {vehicle.license_plate}
+                        {vehicle.license_plate && vehicle.license_plate !== 'N/A' 
+                          ? `${vehicle.license_plate} (${vehicle.brand} ${vehicle.model})` 
+                          : `${vehicle.brand} ${vehicle.model}`}
                       </SelectItem>
                     ))}
                   </SelectContent>
