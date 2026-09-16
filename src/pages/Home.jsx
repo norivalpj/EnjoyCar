@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
-  Car, Plus, Wrench, ChevronRight, Bell, Phone, Star, MapPin
+  Car, Plus, Wrench, ChevronRight, Bell, Phone, Star, MapPin, Gauge
 } from "lucide-react";
 import { isAfter, addDays } from "date-fns";
 import { useTranslation } from 'react-i18next';
@@ -19,11 +19,13 @@ import MaintenanceCard from '../components/maintenance/MaintenanceCard';
 import GuidedTour from '../components/onboarding/GuidedTour';
 import MaintenanceNotifications from '../components/notifications/MaintenanceNotifications';
 import NotificationService from '../components/notifications/NotificationService';
+import QuickUpdateKmDialog from '../components/vehicles/QuickUpdateKmDialog';
 import { AnimatePresence } from 'framer-motion';
 
 export default function Home() {
   const { t } = useTranslation();
   const [showTour, setShowTour] = useState(false);
+  const [showQuickUpdate, setShowQuickUpdate] = useState(false);
   const { data: vehicles = [], isLoading: loadingVehicles } = useQuery({
     queryKey: ['vehicles'],
     queryFn: () => base44.entities.Vehicle.list('-created_date')
@@ -58,7 +60,10 @@ export default function Home() {
   // Get vehicle name helper
   const getVehicleName = (vehicleId) => {
     const vehicle = vehicles.find(v => v.id === vehicleId);
-    return vehicle ? `${vehicle.brand} ${vehicle.model}` : '';
+    if (!vehicle) return '';
+    return vehicle.license_plate && vehicle.license_plate !== 'N/A' 
+      ? `${vehicle.license_plate} (${vehicle.brand} ${vehicle.model})`
+      : `${vehicle.brand} ${vehicle.model}`;
   };
 
   const isLoading = loadingVehicles || loadingMaintenances;
@@ -159,6 +164,13 @@ export default function Home() {
           </div>
           
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setShowQuickUpdate(true)} className="hidden sm:flex">
+              <Gauge className="w-4 h-4 mr-2" />
+              Atualizar KM
+            </Button>
+            <Button variant="outline" size="icon" onClick={() => setShowQuickUpdate(true)} className="sm:hidden text-slate-600">
+              <Gauge className="w-4 h-4" />
+            </Button>
             <Link to={createPageUrl('NotificationSettings')}>
               <Button variant="ghost" size="icon" className="rounded-full text-slate-500 hover:text-blue-600" title="Configurar Notificações">
                 <Bell className="w-5 h-5" />
@@ -348,6 +360,12 @@ export default function Home() {
           />
         )}
       </AnimatePresence>
+      
+      <QuickUpdateKmDialog 
+        open={showQuickUpdate} 
+        onOpenChange={setShowQuickUpdate} 
+        vehicles={vehicles} 
+      />
     </div>
   );
 }
